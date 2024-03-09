@@ -8,3 +8,5 @@ huggingface_hub==0.16.4
 transformers==4.31.0
 torchmetrics==0.6.0
 omegaconf
+einops
+pytorch_lightning
