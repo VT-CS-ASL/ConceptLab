@@ -260,7 +260,15 @@ class Coach:
         return text_embs_normed
 
     def train(self):
-        sampled_image = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images')
+
+        image_embs = None
+        if self.cfg.image_feature and not self.cfg.live_negatives:
+            raise RuntimeError("image feature must with live_negatives")
+        elif self.cfg.image_feature:
+            # guarantee image_embs will have corresponding feature with negative_classes
+            image_embs = []
+
+        sampled_image = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images', image_embs=image_embs)
         if self.cfg.live_negatives and len(self.cfg.negative_classes) == 0:
             live_negative = self.query_vlm(sampled_image)
             self.cfg.negative_classes.append(live_negative)
