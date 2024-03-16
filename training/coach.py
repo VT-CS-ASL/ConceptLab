@@ -235,6 +235,12 @@ class Coach:
 
         return txt_feat, img_feat
 
+    @staticmethod
+    def normalize_embeds(emb: torch.Tensor) -> torch.Tensor:
+        image_emb_norm = emb.norm(p=2, dim=-1, keepdim=True)
+        image_emb_normed = emb / image_emb_norm
+        return image_emb_normed
+
     def get_normed_embeds(self, text_prompts: List[str]) -> torch.Tensor:
         with torch.no_grad():
             text_tokens = self.model.tokenizer1(
@@ -250,7 +256,7 @@ class Coach:
                 tokens=text_tokens['input_ids'].long().to(device=self.cfg.device),
                 mask=text_tokens['attention_mask'].to(device=self.cfg.device),
             )
-            text_embs_normed = text_embs / text_embs.norm(p=2, dim=-1, keepdim=True)
+            text_embs_normed = self.normalize_embeds(text_embs)
         return text_embs_normed
 
     def train(self):
@@ -279,8 +285,7 @@ class Coach:
                 if self.cfg.optimize_in_text_space:
                     image_emb = txt_emb[:1]
 
-                image_emb_norm = image_emb.norm(p=2, dim=-1, keepdim=True)
-                image_emb_normed = image_emb / image_emb_norm
+                image_emb_normed = self.normalize_embeds(image_emb)
 
                 # Calculate distances from classes
                 distances_per_cls = {}
