@@ -79,7 +79,7 @@ class CoachEvolution(Coach):
         self.t2_eos_token_id = len(self.model.tokenizer2.encoder) - 1
         self.t2_place_token_id = self.update_tokenizer()
         self.set_model_gradient_flow()
-        self.optimizer = self.get_optimizer()
+        self.optimizer = self.get_optimizer(self.model.clip_model.token_embedding.parameters())
         self.train_dataloader = self.get_train_dataloader()
         # Save original embeddings from both models
         self.orig_t2_params = self.model.clip_model.token_embedding.weight.data.clone()

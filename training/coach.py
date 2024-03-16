@@ -37,7 +37,7 @@ class Coach:
 
         # Set optimizer and gradient flow
         self.set_model_gradient_flow()
-        self.optimizer = self.get_optimizer()
+        self.optimizer = self.get_optimizer(self.model.clip_model.token_embedding.parameters())
         self.train_dataloader = self.get_train_dataloader()
 
         # Save original embeddings from both models
@@ -75,7 +75,7 @@ class Coach:
         print(f'Adding negative class: "{negative_cls}"')
         return negative_cls
 
-    def save_images(self, save_dir: Path, save_prefix: str):
+    def save_images(self, save_dir: Path, save_prefix: str, image_embs: list = None):
         if self.cfg.learnable_property == LearnableProperties.style:
             prompts = [f"a painting of a horse and a barn in a valley in the style of {self.cfg.placeholder_token}",
                        f"a painting of a dog in the style of {self.cfg.placeholder_token}",
@@ -88,6 +88,8 @@ class Coach:
 
         inference_seeds = self.cfg.inference_seeds
         images = []
+        if image_embs is not None:
+            image_emb_ref = []
         for prompt in prompts:
             images.extend([self.model.generate_text2img(prompt="",
                                                         img_prompt=prompt,
@@ -99,9 +101,12 @@ class Coach:
                                                         sampler="p_sampler",
                                                         prior_cf_scale=4,
                                                         prior_steps="5",
-                                                        seed=inference_seeds[idx])[0]
+                                                        seed=inference_seeds[idx],
+                                                        image_emb_ref=image_emb_ref if image_embs else None)[0]
                            for idx in range(len(inference_seeds))])
 
+        if image_emb_ref:
+            image_embs.append(image_emb_ref[0])
         gen_images = np.hstack([np.array(img) for img in images])
         Image.fromarray(gen_images).save(save_dir / f'{save_prefix}.jpeg')
         # We return the first output of set_b which will be optionally used by BLIP
@@ -130,15 +135,33 @@ class Coach:
         )
         return train_dataloader
 
-    def get_optimizer(self) -> torch.optim.Optimizer:
+    def get_optimizer(self, learnable_parameters) -> torch.optim.Optimizer:
         optimizer = torch.optim.AdamW(
-            params=self.model.clip_model.token_embedding.parameters(),
+            params=learnable_parameters,
             lr=self.cfg.learning_rate * self.cfg.train_batch_size,
             betas=(self.cfg.adam_beta1, self.cfg.adam_beta2),
             weight_decay=self.cfg.adam_weight_decay,
             eps=self.cfg.adam_epsilon,
         )
         return optimizer
+
+    def get_neg_similarity(self, neg_prompts, distances_per_cls: dict, text_embeds: torch.Tensor, image_embeds: torch.Tensor):
+        neg_cosine_sim = (text_embeds.detach() @ image_embeds.T)
+
+        # Add distances to log
+        for neg_ind, neg_class in enumerate(self.cfg.negative_classes):
+            distances_per_cls[neg_class] = neg_cosine_sim[neg_ind].mean().item()
+
+        # Restrict min cosine sim to optimize
+        neg_cosine_sim = torch.max(neg_cosine_sim,
+                                    torch.ones_like(neg_cosine_sim) * self.cfg.min_cosine_thr)
+
+        mean_neg_cosine = neg_cosine_sim.mean()
+        max_neg_cosine, neg_max_ind = neg_cosine_sim.mean(dim=1).max(dim=0)
+        print(f'\tmean_neg: {mean_neg_cosine:.3f}, '
+                f'max_neg: {max_neg_cosine:.3f} for {neg_prompts[neg_max_ind]} ')
+
+        return mean_neg_cosine, max_neg_cosine
 
     def update_tokenizer(self) -> Tuple[int, int]:
         # Convert the initializer_token, placeholder_token to ids for tokenizer2
@@ -293,7 +316,7 @@ class Coach:
                 if self.cfg.optimize_in_text_space:
                     image_emb = txt_emb[:1]
 
-                image_emb_normed = self.normalize_embeds(image_emb)
+                pos_image_emb_normed = self.normalize_embeds(image_emb)
 
                 # Calculate distances from classes
                 distances_per_cls = {}
@@ -305,7 +328,7 @@ class Coach:
                     pos_prompts = [batch["template"][0].format(token=pos_word) for pos_word in
                                    self.cfg.positive_classes]
                 pos_embeds = self.get_normed_embeds(pos_prompts)
-                pos_cosine_sim = (pos_embeds.detach() @ image_emb_normed.T)
+                pos_cosine_sim = (pos_embeds.detach() @ pos_image_emb_normed.T)
 
                 # Add distances to log
                 for pos_ind, pos_class in enumerate(self.cfg.positive_classes):
@@ -323,26 +346,22 @@ class Coach:
                       f'max_pos: {max_pos_cosine:.3f} for {pos_prompts[pos_max_ind]} ')
 
                 neg_prompts = [batch["template"][0].format(token=neg_word) for neg_word in self.cfg.negative_classes]
-                if len(neg_prompts) > 0:
+                if self.cfg.image_feature and len(image_embs):
+                    prompt_embeds = pos_embeds
+                    image_embeds = self.normalize_embeds(image_embs)
+                elif len(neg_prompts) > 0:
                     # Calc distances to negative classes
-                    neg_embeds = self.get_normed_embeds(neg_prompts)
-                    neg_cosine_sim = (neg_embeds.detach() @ image_emb_normed.T)
-
-                    # Add distances to log
-                    for neg_ind, neg_class in enumerate(self.cfg.negative_classes):
-                        distances_per_cls[neg_class] = neg_cosine_sim[neg_ind].mean().item()
-
-                    # Restrict min cosine sim to optimize
-                    neg_cosine_sim = torch.max(neg_cosine_sim,
-                                               torch.ones_like(neg_cosine_sim) * self.cfg.min_cosine_thr)
-
-                    mean_neg_cosine = neg_cosine_sim.mean()
-                    max_neg_cosine, neg_max_ind = neg_cosine_sim.mean(dim=1).max(dim=0)
-                    print(f'\tmean_neg: {mean_neg_cosine:.3f}, '
-                          f'max_neg: {max_neg_cosine:.3f} for {neg_prompts[neg_max_ind]} ')
+                    prompt_embeds = self.get_normed_embeds(neg_prompts)
+                    image_embeds = pos_image_emb_normed
                 else:
                     mean_neg_cosine = 0
                     max_neg_cosine = 0
+
+                if (self.cfg.image_feature and len(image_embs)) or len(neg_prompts):
+                    mean_neg_cosine, max_neg_cosine = self.get_neg_similarity(neg_prompts=neg_prompts,
+                                                                              distances_per_cls=distances_per_cls,
+                                                                              text_embeds=prompt_embeds,
+                                                                              image_embeds=image_embeds)
 
                 distances_log.append(distances_per_cls)
                 print(distances_per_cls.keys())
@@ -368,7 +387,8 @@ class Coach:
 
                 if self.cfg.log_image_frequency > 0 and (self.train_step % self.cfg.log_image_frequency == 0):
                     sampled_image = self.save_images(save_dir=self.cfg.images_root,
-                                                     save_prefix=f'{self.train_step}_step_images')
+                                                     save_prefix=f'{self.train_step}_step_images',
+                                                     image_embs=image_embs)
                     figure_save_path = self.cfg.images_root / f"{self.train_step}_step_distances.jpg"
                     self.plot_distances(distances_log=distances_log, output_path=figure_save_path)
 

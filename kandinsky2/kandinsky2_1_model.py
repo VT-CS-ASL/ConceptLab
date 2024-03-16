@@ -312,6 +312,7 @@ class Kandinsky2_1:
             negative_prior_prompt="",
             negative_decoder_prompt="",
             seed=None,
+            image_emb_ref=None,
     ):
 
         if img_prompt == "":
@@ -326,6 +327,10 @@ class Kandinsky2_1:
             negative_prior_prompt=negative_prior_prompt,
             seed=seed,
         )
+
+        if image_emb_ref is not None and type(image_emb_ref) is list:
+            image_emb_ref.append(torch.clone(image_emb))
+
         if negative_decoder_prompt == "":
             zero_image_emb = self.create_zero_img_emb(batch_size=batch_size)
         else:
