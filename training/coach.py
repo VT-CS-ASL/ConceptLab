@@ -88,8 +88,8 @@ class Coach:
 
         inference_seeds = self.cfg.inference_seeds
         images = []
-        if image_embs is not None:
-            image_emb_ref = []
+        image_emb_references = [] if image_embs is not None else None
+
         for prompt in prompts:
             images.extend([self.model.generate_text2img(prompt="",
                                                         img_prompt=prompt,
@@ -102,11 +102,11 @@ class Coach:
                                                         prior_cf_scale=4,
                                                         prior_steps="5",
                                                         seed=inference_seeds[idx],
-                                                        image_emb_ref=image_emb_ref if image_embs else None)[0]
+                                                        image_emb_ref=image_emb_references)[0]
                            for idx in range(len(inference_seeds))])
 
-        if image_emb_ref:
-            image_embs.append(image_emb_ref[0])
+        if image_emb_references:
+            image_embs.append(image_emb_references[0])
         gen_images = np.hstack([np.array(img) for img in images])
         Image.fromarray(gen_images).save(save_dir / f'{save_prefix}.jpeg')
         # We return the first output of set_b which will be optionally used by BLIP
