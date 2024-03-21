@@ -145,8 +145,8 @@ class Coach:
         )
         return optimizer
 
-    def get_neg_similarity(self, neg_prompts, distances_per_cls: dict, text_embeds: torch.Tensor, image_embeds: torch.Tensor):
-        neg_cosine_sim = (text_embeds.detach() @ image_embeds.T)
+    def get_neg_similarity(self, neg_prompts, distances_per_cls: dict, list_embeds: torch.Tensor, pivot_embeds: torch.Tensor):
+        neg_cosine_sim = (list_embeds @ pivot_embeds.T)
 
         # Add distances to log
         for neg_ind, neg_class in enumerate(self.cfg.negative_classes):
@@ -157,7 +157,10 @@ class Coach:
                                     torch.ones_like(neg_cosine_sim) * self.cfg.min_cosine_thr)
 
         mean_neg_cosine = neg_cosine_sim.mean()
-        max_neg_cosine, neg_max_ind = neg_cosine_sim.mean(dim=1).max(dim=0)
+        if self.cfg.image_feature:
+            max_neg_cosine, neg_max_ind = neg_cosine_sim.mean(dim=1).mean(dim=1).max(dim=0)
+        else:
+            max_neg_cosine, neg_max_ind = neg_cosine_sim.mean(dim=1).max(dim=0)
         print(f'\tmean_neg: {mean_neg_cosine:.3f}, '
                 f'max_neg: {max_neg_cosine:.3f} for {neg_prompts[neg_max_ind]} ')
 
@@ -343,16 +346,16 @@ class Coach:
                     pos_loss += self.cfg.positive_weights[pos_ind] * (1 - curr_pos_cosine_sim)
                 max_pos_cosine, pos_max_ind = pos_cosine_sim.mean(dim=1).max(dim=0)
                 print(f'\tpos_loss: {pos_loss.item():.3f}, '
-                      f'max_pos: {max_pos_cosine:.3f} for {pos_prompts[pos_max_ind]} ')
+                      f'max_pos: {max_pos_cosine:.3f} for {pos_prompts[pos_max_ind]}')
 
                 neg_prompts = [batch["template"][0].format(token=neg_word) for neg_word in self.cfg.negative_classes]
                 if self.cfg.image_feature and len(image_embs):
-                    prompt_embeds = pos_embeds
-                    image_embeds = self.normalize_embeds(image_embs)
+                    pivot_embeds = pos_embeds.detach()
+                    list_embeds = self.normalize_embeds(image_embs)
                 elif len(neg_prompts) > 0:
                     # Calc distances to negative classes
-                    prompt_embeds = self.get_normed_embeds(neg_prompts)
-                    image_embeds = pos_image_emb_normed
+                    list_embeds = self.get_normed_embeds(neg_prompts).detach()
+                    pivot_embeds = pos_image_emb_normed
                 else:
                     mean_neg_cosine = 0
                     max_neg_cosine = 0
@@ -360,8 +363,8 @@ class Coach:
                 if (self.cfg.image_feature and len(image_embs)) or len(neg_prompts):
                     mean_neg_cosine, max_neg_cosine = self.get_neg_similarity(neg_prompts=neg_prompts,
                                                                               distances_per_cls=distances_per_cls,
-                                                                              text_embeds=prompt_embeds,
-                                                                              image_embeds=image_embeds)
+                                                                              list_embeds=list_embeds,
+                                                                              pivot_embeds=pivot_embeds)
 
                 distances_log.append(distances_per_cls)
                 print(distances_per_cls.keys())
