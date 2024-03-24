@@ -66,7 +66,9 @@ class TrainConfig:
     # Whether to use CLIP-ConceptLab and optimize only in CLIP text space
     optimize_in_text_space: bool = False
     # Whether to use image feature to replace prompt feature
-    image_feature: bool = True
+    image_feature: bool = False 
+    # The class you want to be negative in the placeholder prompt
+    specific_negatives: str = ""
 
     def __post_init__(self):
         self.output_dir.mkdir(exist_ok=True, parents=True)
