@@ -366,7 +366,7 @@ class Coach:
                 neg_prompts = [batch["template"][0].format(token=neg_word) for neg_word in self.cfg.negative_classes]
                 if self.cfg.image_feature and len(image_embs):
                     pivot_embeds = image_emb_normed
-                    list_embeds = self.normalize_embeds(image_embs)
+                    list_embeds = self.normalize_embeds(torch.stack(image_embs))
                 elif len(neg_prompts) > 0:
                     # Calc distances to negative classes
                     list_embeds = self.get_normed_embeds(neg_prompts).detach()
