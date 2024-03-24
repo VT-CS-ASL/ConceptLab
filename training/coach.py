@@ -334,7 +334,7 @@ class Coach:
                 if self.cfg.optimize_in_text_space:
                     image_emb = txt_emb[:1]
 
-                pos_image_emb_normed = self.normalize_embeds(image_emb)
+                image_emb_normed = self.normalize_embeds(image_emb)
 
                 # Calculate distances from classes
                 distances_per_cls = {}
@@ -346,7 +346,7 @@ class Coach:
                     pos_prompts = [batch["template"][0].format(token=pos_word) for pos_word in
                                    self.cfg.positive_classes]
                 pos_embeds = self.get_normed_embeds(pos_prompts)
-                pos_cosine_sim = (pos_embeds.detach() @ pos_image_emb_normed.T)
+                pos_cosine_sim = (pos_embeds.detach() @ image_emb_normed.T)
 
                 # Add distances to log
                 for pos_ind, pos_class in enumerate(self.cfg.positive_classes):
@@ -365,12 +365,12 @@ class Coach:
 
                 neg_prompts = [batch["template"][0].format(token=neg_word) for neg_word in self.cfg.negative_classes]
                 if self.cfg.image_feature and len(image_embs):
-                    pivot_embeds = pos_image_emb_normed
+                    pivot_embeds = image_emb_normed
                     list_embeds = self.normalize_embeds(image_embs)
                 elif len(neg_prompts) > 0:
                     # Calc distances to negative classes
                     list_embeds = self.get_normed_embeds(neg_prompts).detach()
-                    pivot_embeds = pos_image_emb_normed
+                    pivot_embeds = image_emb_normed
                 else:
                     mean_neg_cosine = 0
                     max_neg_cosine = 0
