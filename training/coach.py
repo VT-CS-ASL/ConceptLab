@@ -287,6 +287,8 @@ class Coach:
 
     def train(self):
 
+        # to avoid generating image for specific class too many times
+        count = 0
         image_embs = None
         if self.cfg.image_feature and not self.cfg.live_negatives:
             raise RuntimeError("image feature must with live_negatives")
@@ -294,10 +296,23 @@ class Coach:
             # guarantee image_embs will have corresponding feature with negative_classes
             image_embs = []
 
+        # TODO: move negative related image and feature to method
         sampled_image = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images', image_embs=image_embs)
         if self.cfg.live_negatives and len(self.cfg.negative_classes) == 0:
             live_negative = self.query_vlm(sampled_image)
-            self.cfg.negative_classes.append(live_negative)
+            if not self.cfg.specific_negatives or live_negative == self.cfg.specific_negatives:
+                self.cfg.negative_classes.append(live_negative)
+            elif image_embs is not None:
+                image_embs.pop()
+                temp = []
+                while count < 10 and live_negative != self.cfg.specific_negatives:
+                    sampled_image = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images', image_embs=temp)
+                    live_negative = self.query_vlm(sampled_image)
+                    count += 1
+                if count != 10:
+                    self.cfg.negative_classes.append(live_negative)
+                    image_embs.append(temp[-1])
+                    del temp
         elif self.cfg.gradual_negatives:
             random.shuffle(self.cfg.negative_classes)
             self.cfg.negative_pool = copy(self.cfg.negative_classes)
@@ -350,7 +365,7 @@ class Coach:
 
                 neg_prompts = [batch["template"][0].format(token=neg_word) for neg_word in self.cfg.negative_classes]
                 if self.cfg.image_feature and len(image_embs):
-                    pivot_embeds = pos_embeds.detach()
+                    pivot_embeds = pos_image_emb_normed
                     list_embeds = self.normalize_embeds(image_embs)
                 elif len(neg_prompts) > 0:
                     # Calc distances to negative classes
@@ -397,7 +412,20 @@ class Coach:
 
                     if self.cfg.live_negatives:
                         negative = self.query_vlm(sampled_image)
-                        self.cfg.negative_classes.append(negative)
+                        if not self.cfg.specific_negatives or negative == self.cfg.specific_negatives:
+                            self.cfg.negative_classes.append(negative)
+                        elif image_embs is not None:
+                            image_embs.pop()
+                            temp = []
+                            count = 0
+                            while count < 10 and negative != self.cfg.specific_negatives:
+                                sampled_image = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images', image_embs=temp)
+                                negative = self.query_vlm(sampled_image)
+                                count += 1
+                            if count != 10:
+                                self.cfg.negative_classes.append(negative)
+                                image_embs.append(temp[-1])
+                                del temp
                     elif self.cfg.gradual_negatives:
                         if len(self.cfg.negative_pool) > 0:
                             self.cfg.negative_classes.append(self.cfg.negative_pool.pop(0))
