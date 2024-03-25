@@ -52,7 +52,7 @@ class Coach:
         model = load_utils.get_model(self.cfg.cache_root, self.cfg.device)
         return model
 
-    def query_vlm(self, sampled_image) -> str:
+    def query_vlm(self, sampled_images) -> str:
         if self.cfg.learnable_property == LearnableProperties.object:
             question = f"What kind of {self.cfg.positive_classes[0]} is in this photo?"
         elif self.cfg.learnable_property == LearnableProperties.style:
@@ -62,18 +62,23 @@ class Coach:
         else:
             raise ValueError(f"Unknown learnable property: {self.cfg.learnable_property}")
 
-        with torch.no_grad():
-            inputs = self.blip_processor(sampled_image, question, return_tensors="pt").to("cuda", torch.float16)
-            out = self.blip_model.generate(**inputs)
-            negative_answer = self.blip_processor.decode(out[0], skip_special_tokens=True)
+        neg_classes = []
 
-        # Remove leading a, if exists
-        negative_cls = negative_answer
-        if negative_cls.startswith("a "):
-            negative_cls = negative_cls[2:]
+        for sampled_image in sampled_images:
+            with torch.no_grad():
+                inputs = self.blip_processor(sampled_image, question, return_tensors="pt").to("cuda", torch.float16)
+                out = self.blip_model.generate(**inputs)
+                negative_answer = self.blip_processor.decode(out[0], skip_special_tokens=True)
 
-        print(f'Idendified class: "{negative_cls}"')
-        return negative_cls
+            # Remove leading a, if exists
+            negative_cls = negative_answer
+            if negative_cls.startswith("a "):
+                negative_cls = negative_cls[2:]
+
+            print(f'Idendified class: "{negative_cls}"')
+            neg_classes.append(negative_cls)
+
+        return neg_classes
 
     def save_images(self, save_dir: Path, save_prefix: str, image_embs: list = None):
         if self.cfg.learnable_property == LearnableProperties.style:
@@ -106,11 +111,12 @@ class Coach:
                            for idx in range(len(inference_seeds))])
 
         if image_emb_references:
-            image_embs.append(image_emb_references[0].squeeze(0))
+            for emb in image_emb_references:
+                image_embs.append(emb.squeeze(0))
         gen_images = np.hstack([np.array(img) for img in images])
         Image.fromarray(gen_images).save(save_dir / f'{save_prefix}.jpeg')
         # We return the first output of set_b which will be optionally used by BLIP
-        return images[0]
+        return images
 
     def load_blip_vlm(self) -> Tuple[Optional[torch.nn.Module], Optional[torch.nn.Module]]:
         if self.cfg.live_negatives:
@@ -294,22 +300,15 @@ class Coach:
             image_embs = []
 
         # TODO: move negative related image and feature to method
-        sampled_image = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images', image_embs=image_embs)
+        sampled_images = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images', image_embs=image_embs)
         if self.cfg.live_negatives and len(self.cfg.negative_classes) == 0:
-            live_negative = self.query_vlm(sampled_image)
-            if not self.cfg.specific_negatives or live_negative == self.cfg.specific_negatives:
-                self.cfg.negative_classes.append(live_negative)
-            elif image_embs is not None:
-                image_embs.pop()
-                temp = []
-                while count < 10 and live_negative != self.cfg.specific_negatives:
-                    sampled_image = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images', image_embs=temp)
-                    live_negative = self.query_vlm(sampled_image)
-                    count += 1
-                if count != 10:
+            live_negatives = self.query_vlm(sampled_images)
+            for live_negative in live_negatives:
+                if not self.cfg.specific_negatives or live_negative == self.cfg.specific_negatives:
                     self.cfg.negative_classes.append(live_negative)
-                    image_embs.append(temp[-1])
-                    del temp
+                elif image_embs is not None:
+                    del image_embs[len(self.cfg.negative_classes)]
+
         elif self.cfg.gradual_negatives:
             random.shuffle(self.cfg.negative_classes)
             self.cfg.negative_pool = copy(self.cfg.negative_classes)
@@ -408,21 +407,12 @@ class Coach:
                     self.plot_distances(distances_log=distances_log, output_path=figure_save_path)
 
                     if self.cfg.live_negatives:
-                        negative = self.query_vlm(sampled_image)
-                        if not self.cfg.specific_negatives or negative == self.cfg.specific_negatives:
-                            self.cfg.negative_classes.append(negative)
-                        elif image_embs is not None:
-                            image_embs.pop()
-                            temp = []
-                            count = 0
-                            while count < 10 and negative != self.cfg.specific_negatives:
-                                sampled_image = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'{self.train_step}_step_images', image_embs=temp)
-                                negative = self.query_vlm(sampled_image)
-                                count += 1
-                            if count != 10:
+                        negatives = self.query_vlm(sampled_image)
+                        for negative in negatives:
+                            if not self.cfg.specific_negatives or negative == self.cfg.specific_negatives:
                                 self.cfg.negative_classes.append(negative)
-                                image_embs.append(temp[-1])
-                                del temp
+                            elif image_embs is not None:
+                                del image_embs[len(self.cfg.negative_classes)]
                     elif self.cfg.gradual_negatives:
                         if len(self.cfg.negative_pool) > 0:
                             self.cfg.negative_classes.append(self.cfg.negative_pool.pop(0))
