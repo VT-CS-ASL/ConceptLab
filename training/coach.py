@@ -72,7 +72,7 @@ class Coach:
         if negative_cls.startswith("a "):
             negative_cls = negative_cls[2:]
 
-        print(f'Adding negative class: "{negative_cls}"')
+        print(f'Idendified class: "{negative_cls}"')
         return negative_cls
 
     def save_images(self, save_dir: Path, save_prefix: str, image_embs: list = None):
@@ -419,7 +419,7 @@ class Coach:
                             temp = []
                             count = 0
                             while count < 10 and negative != self.cfg.specific_negatives:
-                                sampled_image = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images', image_embs=temp)
+                                sampled_image = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'{self.train_step}_step_images', image_embs=temp)
                                 negative = self.query_vlm(sampled_image)
                                 count += 1
                             if count != 10:
