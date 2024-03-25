@@ -12,3 +12,4 @@ seed: 0
 live_negatives: True
 image_feature: True
 specific_negatives: "dog"
+pos_to_neg_loss_factor: 1.5
