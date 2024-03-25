@@ -106,7 +106,7 @@ class Coach:
                            for idx in range(len(inference_seeds))])
 
         if image_emb_references:
-            image_embs.append(image_emb_references[0])
+            image_embs.append(image_emb_references[0].squeeze(0))
         gen_images = np.hstack([np.array(img) for img in images])
         Image.fromarray(gen_images).save(save_dir / f'{save_prefix}.jpeg')
         # We return the first output of set_b which will be optionally used by BLIP
@@ -157,10 +157,7 @@ class Coach:
                                     torch.ones_like(neg_cosine_sim) * self.cfg.min_cosine_thr)
 
         mean_neg_cosine = neg_cosine_sim.mean()
-        if self.cfg.image_feature:
-            max_neg_cosine, neg_max_ind = neg_cosine_sim.mean(dim=1).mean(dim=1).max(dim=0)
-        else:
-            max_neg_cosine, neg_max_ind = neg_cosine_sim.mean(dim=1).max(dim=0)
+        max_neg_cosine, neg_max_ind = neg_cosine_sim.mean(dim=1).max(dim=0)
         print(f'\tmean_neg: {mean_neg_cosine:.3f}, '
                 f'max_neg: {max_neg_cosine:.3f} for {neg_prompts[neg_max_ind]} ')
 
