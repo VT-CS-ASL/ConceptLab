@@ -304,7 +304,7 @@ class Coach:
         if self.cfg.live_negatives and len(self.cfg.negative_classes) == 0:
             live_negatives = self.query_vlm(sampled_images)
             for live_negative in live_negatives:
-                if not self.cfg.specific_negatives or live_negative == self.cfg.specific_negatives:
+                if not self.cfg.specific_negatives or live_negative in self.cfg.specific_negatives:
                     self.cfg.negative_classes.append(live_negative)
                 elif image_embs is not None:
                     del image_embs[len(self.cfg.negative_classes)]
@@ -409,7 +409,7 @@ class Coach:
                     if self.cfg.live_negatives:
                         negatives = self.query_vlm(sampled_image)
                         for negative in negatives:
-                            if not self.cfg.specific_negatives or negative == self.cfg.specific_negatives:
+                            if not self.cfg.specific_negatives or negative in self.cfg.specific_negatives:
                                 self.cfg.negative_classes.append(negative)
                             elif image_embs is not None:
                                 del image_embs[len(self.cfg.negative_classes)]
