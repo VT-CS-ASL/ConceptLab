@@ -131,6 +131,16 @@ class Coach:
         else:
             return None, None
 
+    def get_image_feature(self, img_prompt: str):
+        # generate clip embeddings
+        return self.model.generate_clip_emb(
+            img_prompt,
+            batch_size=1,
+            prior_cf_scale=4,
+            prior_steps="5",
+            negative_prior_prompt="",
+            seed=None)
+
     def get_train_dataloader(self) -> torch.utils.data.DataLoader:
         dataset = ConceptDataset(
             placeholder_token=self.cfg.placeholder_token,
@@ -342,7 +352,10 @@ class Coach:
                 else:
                     pos_prompts = [batch["template"][0].format(token=pos_word) for pos_word in
                                    self.cfg.positive_classes]
-                pos_embeds = self.get_normed_embeds(pos_prompts)
+                if self.cfg.image_feature:
+                    pos_embeds = self.normalize_embeds(self.get_image_feature(pos_prompts))
+                else:
+                    pos_embeds = self.get_normed_embeds(pos_prompts)
                 pos_cosine_sim = (pos_embeds.detach() @ image_emb_normed.T)
 
                 # Add distances to log
