@@ -361,7 +361,7 @@ class Kandinsky2_1:
             seed=seed
         )
         if image_emb_ref is not None and type(image_emb_ref) is list:
-            image_tensors = torch.stack([self.clip_model.preprocess(image).to(self.device) for image in images])
+            image_tensors = torch.stack([self.preprocess(image).to(self.device) for image in images])
             with torch.no_grad():
                 image_emb_ref.append(self.clip_model.encode_image(image_tensors).to(self.model_dtype))
         
