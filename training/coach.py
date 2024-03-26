@@ -133,6 +133,7 @@ class Coach:
 
     def get_image_feature(self, img_prompts: str):
         # generate clip embeddings
+        # we only use batch_size, so we should squeeze the dimension to contain only image feature
         return torch.stack([
                 self.normalize_embeds(
                     self.model.generate_clip_emb(
@@ -142,7 +143,7 @@ class Coach:
                         prior_steps="5",
                         negative_prior_prompt="",
                         seed=None)
-                    )
+                    ).squeeze(0)
                 for img_prompt in img_prompts
             ])
 
