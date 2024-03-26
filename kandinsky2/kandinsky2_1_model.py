@@ -313,6 +313,7 @@ class Kandinsky2_1:
             negative_decoder_prompt="",
             seed=None,
             image_emb_ref=None,
+            clip_feature=False,
     ):
 
         if img_prompt == "":
@@ -360,10 +361,14 @@ class Kandinsky2_1:
             diffusion=diffusion,
             seed=seed
         )
+
         if image_emb_ref is not None and type(image_emb_ref) is list:
-            image_tensors = torch.stack([self.preprocess(image).to(self.device) for image in images])
-            with torch.no_grad():
-                image_emb_ref.append(self.clip_model.encode_image(image_tensors).to(self.model_dtype))
+            if clip_feature:
+                image_tensors = torch.stack([self.preprocess(image).to(self.device) for image in images])
+                with torch.no_grad():
+                    image_emb_ref.append(self.clip_model.encode_image(image_tensors).to(self.model_dtype))
+            else:
+                image_emb_ref.append(torch.clone(image_emb))
         
         return images
 

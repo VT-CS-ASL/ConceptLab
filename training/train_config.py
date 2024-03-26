@@ -69,6 +69,8 @@ class TrainConfig:
     image_feature: bool = False 
     # The class you want to be negative in the placeholder prompt
     specific_negatives: str = ""
+    # Enable clip to transform image to feature space for similarity
+    clip_image_feature: bool = False
 
     def __post_init__(self):
         self.output_dir.mkdir(exist_ok=True, parents=True)

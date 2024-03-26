@@ -107,7 +107,8 @@ class Coach:
                                                         prior_cf_scale=4,
                                                         prior_steps="5",
                                                         seed=inference_seeds[idx],
-                                                        image_emb_ref=image_emb_references)[0]
+                                                        image_emb_ref=image_emb_references,
+                                                        clip_feature=self.cfg.clip_image_feature)[0]
                            for idx in range(len(inference_seeds))])
 
         if image_emb_references:
