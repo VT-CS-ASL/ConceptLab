@@ -328,9 +328,6 @@ class Kandinsky2_1:
             seed=seed,
         )
 
-        if image_emb_ref is not None and type(image_emb_ref) is list:
-            image_emb_ref.append(torch.clone(image_emb))
-
         if negative_decoder_prompt == "":
             zero_image_emb = self.create_zero_img_emb(batch_size=batch_size)
         else:
@@ -351,7 +348,7 @@ class Kandinsky2_1:
             config["diffusion_config"]["timestep_respacing"] = str(num_steps)
         diffusion = create_gaussian_diffusion(**config["diffusion_config"])
 
-        return self.generate_img(
+        images = self.generate_img(
             prompt=prompt,
             img_prompt=image_emb,
             batch_size=batch_size,
@@ -363,6 +360,13 @@ class Kandinsky2_1:
             diffusion=diffusion,
             seed=seed
         )
+        if image_emb_ref is not None and type(image_emb_ref) is list:
+            image_tensors = torch.stack([self.clip_model.preprocess(image).to(self.device) for image in images])
+            with torch.no_grad():
+                image_emb_ref.append(self.clip_model.encode_image(image_tensors).to(self.model_dtype))
+        
+        return images
+
 
     @torch.no_grad()
     def mix_images(
