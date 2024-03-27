@@ -80,16 +80,19 @@ class Coach:
 
         return neg_classes
 
-    def save_images(self, save_dir: Path, save_prefix: str, image_embs: list = None):
+    def save_images(self, save_dir: Path, save_prefix: str, image_embs: list = None, template = None):
         if self.cfg.learnable_property == LearnableProperties.style:
             prompts = [f"a painting of a horse and a barn in a valley in the style of {self.cfg.placeholder_token}",
                        f"a painting of a dog in the style of {self.cfg.placeholder_token}",
                        f"a painting of fruit bowl in the style of {self.cfg.placeholder_token}"]
         else:
             # First prompt is the one we are going to run blip against, this specific one works great with kandinsky
-            prompts = [f"Professional high-quality art of a {self.cfg.placeholder_token}. photorealistic, 4k, HQ",
+            if template is None:
+                prompts = [f"Professional high-quality art of a {self.cfg.placeholder_token}. photorealistic, 4k, HQ",
                        f"a photo of a {self.cfg.placeholder_token}",
                        random.choice(object_templates_edits).format(a='a', token=self.cfg.placeholder_token)]
+            else:
+                prompts = [template[0].format(token=self.cfg.placeholder_token)]
 
         inference_seeds = self.cfg.inference_seeds
         images = []
@@ -317,19 +320,19 @@ class Coach:
             image_embs = []
 
         # TODO: move negative related image and feature to method
-        sampled_images = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images', image_embs=image_embs)
-        if self.cfg.live_negatives and len(self.cfg.negative_classes) == 0:
-            live_negatives = self.query_vlm(sampled_images)
-            for live_negative in live_negatives:
-                if not self.cfg.specific_negatives or self.cfg.specific_negatives in live_negative:
-                    self.cfg.negative_classes.append(live_negative)
-                elif image_embs is not None:
-                    del image_embs[len(self.cfg.negative_classes)]
-
-        elif self.cfg.gradual_negatives:
-            random.shuffle(self.cfg.negative_classes)
-            self.cfg.negative_pool = copy(self.cfg.negative_classes)
-            self.cfg.negative_classes = [self.cfg.negative_pool.pop(0)]
+        if not self.cfg.image_feature:
+            sampled_images = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images', image_embs=image_embs)
+            if self.cfg.live_negatives and len(self.cfg.negative_classes) == 0:
+                live_negatives = self.query_vlm(sampled_images)
+                for live_negative in live_negatives:
+                    if not self.cfg.specific_negatives or self.cfg.specific_negatives in live_negative:
+                        self.cfg.negative_classes.append(live_negative)
+                    elif image_embs is not None:
+                        del image_embs[len(self.cfg.negative_classes)]
+            elif self.cfg.gradual_negatives:
+                random.shuffle(self.cfg.negative_classes)
+                self.cfg.negative_pool = copy(self.cfg.negative_classes)
+                self.cfg.negative_classes = [self.cfg.negative_pool.pop(0)]
 
         distances_log: List[Dict[str, float]] = []
 
@@ -380,7 +383,15 @@ class Coach:
                       f'max_pos: {max_pos_cosine:.3f} for {pos_prompts[pos_max_ind]}')
 
                 neg_prompts = [batch["template"][0].format(token=neg_word) for neg_word in self.cfg.negative_classes]
-                if self.cfg.image_feature and len(image_embs):
+                if self.cfg.image_feature:
+                    sampled_images = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images', image_embs=image_embs, template=batch["template"])
+                    live_negatives = self.query_vlm(sampled_images)
+                    for live_negative in live_negatives:
+                        if not self.cfg.specific_negatives or self.cfg.specific_negatives in live_negative:
+                            self.cfg.negative_classes.append(live_negative)
+                        elif image_embs is not None:
+                            del image_embs[len(self.cfg.negative_classes)]
+
                     pivot_embeds = image_emb_normed
                     list_embeds = self.normalize_embeds(torch.stack(image_embs))
                 elif len(neg_prompts) > 0:
