@@ -401,7 +401,7 @@ class Coach:
                     neg_prompts = [batch["template"][0].format(token=neg_word) for neg_word in negative_classes[batch["template"][0]]]
 
                     pivot_embeds = image_emb_normed
-                    list_embeds = self.normalize_embeds(torch.stack(image_embs[batch["template"][0]])).detach()
+                    list_embeds = self.normalize_embeds(torch.stack(image_embs[batch["template"][0]])).detach() if image_embs[batch["template"][0]] else None
                 elif len(neg_prompts) > 0:
                     # Calc distances to negative classes
                     list_embeds = self.get_normed_embeds(neg_prompts).detach()
@@ -455,9 +455,9 @@ class Coach:
                                     classes_temp.append(live_negative)
                                 elif image_embs is not None:
                                     del temp[len(classes_temp)]
-
-                            image_embs[batch["template"][0]].extend(temp)
-                            negative_classes[batch["template"][0]].extend(classes_temp)
+                            if temp:
+                                image_embs[batch["template"][0]].extend(temp)
+                                negative_classes[batch["template"][0]].extend(classes_temp)
 
                         else:
                             self.cfg.negative_classes.extend(negatives)
