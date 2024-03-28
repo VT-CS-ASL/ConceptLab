@@ -57,7 +57,7 @@ class Coach:
         if self.cfg.learnable_property == LearnableProperties.object:
             question = f"What kind of {self.cfg.positive_classes[0]} is in this photo?"
             if self.cfg.image_feature:
-                question = "What kind of animal is in this photo?"
+                question = "What general type of animal is in this photo?"
         elif self.cfg.learnable_property == LearnableProperties.style:
             # NOTE: We specifically specify the content to avoid the model adding it to the answer
             # Currently hard-coded to match the images generated in the style mode
@@ -390,7 +390,7 @@ class Coach:
                         sampled_images = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images', image_embs=temp, template=batch["template"])
                         live_negatives = self.query_vlm(sampled_images)
                         for live_negative in live_negatives:
-                            if not self.cfg.specific_negatives or self.cfg.specific_negatives in live_negative or live_negative == "st bernard":
+                            if not self.cfg.specific_negatives or self.cfg.specific_negatives in live_negative:
                                 classes_temp.append(live_negative)
                             elif image_embs is not None:
                                 del temp[len(classes_temp)]
@@ -410,7 +410,7 @@ class Coach:
                     mean_neg_cosine = 0
                     max_neg_cosine = 0
 
-                if (self.cfg.image_feature and len(image_embs)) or len(neg_prompts):
+                if (self.cfg.image_feature and len(image_embs)) and len(neg_prompts):
                     mean_neg_cosine, max_neg_cosine = self.get_neg_similarity(neg_prompts=neg_prompts,
                                                                               distances_per_cls=distances_per_cls,
                                                                               list_embeds=list_embeds,
