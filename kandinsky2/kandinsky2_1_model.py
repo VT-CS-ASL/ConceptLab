@@ -369,7 +369,7 @@ class Kandinsky2_1:
                     image_emb_ref.append(self.clip_model.encode_image(image_tensors).to(self.model_dtype))
             else:
                 image_emb_ref.append(torch.split_copy(image_emb, batch_size, dim=0)[0])
-        
+
         return images
 
 

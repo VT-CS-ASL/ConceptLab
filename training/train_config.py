@@ -66,7 +66,7 @@ class TrainConfig:
     # Whether to use CLIP-ConceptLab and optimize only in CLIP text space
     optimize_in_text_space: bool = False
     # Whether to use image feature to replace prompt feature
-    image_feature: bool = False 
+    image_feature: bool = False
     # The class you want to be negative in the placeholder prompt
     specific_negatives: str = ""
     # Enable clip to transform image to feature space for similarity
