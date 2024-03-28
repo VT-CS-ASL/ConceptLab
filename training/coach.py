@@ -406,11 +406,11 @@ class Coach:
                     # Calc distances to negative classes
                     list_embeds = self.get_normed_embeds(neg_prompts).detach()
                     pivot_embeds = image_emb_normed
-                else:
-                    mean_neg_cosine = 0
-                    max_neg_cosine = 0
 
-                if (self.cfg.image_feature and len(image_embs)) and len(neg_prompts):
+                mean_neg_cosine: torch.Tensor = 0
+                max_neg_cosine: torch.Tensor = 0
+
+                if len(neg_prompts):
                     mean_neg_cosine, max_neg_cosine = self.get_neg_similarity(neg_prompts=neg_prompts,
                                                                               distances_per_cls=distances_per_cls,
                                                                               list_embeds=list_embeds,
