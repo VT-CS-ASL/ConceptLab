@@ -333,6 +333,30 @@ class Coach:
                 random.shuffle(self.cfg.negative_classes)
                 self.cfg.negative_pool = copy(self.cfg.negative_classes)
                 self.cfg.negative_classes = [self.cfg.negative_pool.pop(0)]
+        else:
+            from training.templates import PREFIXES
+            for temp in ConceptDataset(
+                placeholder_token=self.cfg.placeholder_token,
+                learnable_property=self.cfg.learnable_property
+            ).templates:
+                templates = [temp]
+                if '{a}' in template:
+                    for a in PREFIXES:
+                        templates.append(temp.format(a=a, token='{token}'))
+                for template in templates:
+                    while len(image_embs[template]) == 0:
+                        temp = []
+                        classes_temp = []
+                        sampled_images = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images', image_embs=temp, template=[template])
+                        live_negatives = self.query_vlm(sampled_images)
+                        for live_negative in live_negatives:
+                            if not self.cfg.specific_negatives or self.cfg.specific_negatives in live_negative:
+                                classes_temp.append(live_negative)
+                            elif image_embs is not None:
+                                del temp[len(classes_temp)]
+
+                        image_embs[template].extend(temp)
+                        negative_classes[template].extend(classes_temp)
 
         distances_log: List[Dict[str, float]] = []
 
