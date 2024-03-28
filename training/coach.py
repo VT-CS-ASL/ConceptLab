@@ -340,7 +340,7 @@ class Coach:
                 learnable_property=self.cfg.learnable_property
             ).templates:
                 templates = [temp]
-                if '{a}' in template:
+                if '{a}' in temp:
                     for a in PREFIXES:
                         templates.append(temp.format(a=a, token='{token}'))
                 for template in templates:
