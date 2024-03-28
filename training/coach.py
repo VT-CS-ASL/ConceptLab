@@ -83,7 +83,7 @@ class Coach:
 
         return neg_classes
 
-    def save_images(self, save_dir: Path, save_prefix: str, image_embs: list = None, template = None):
+    def save_images(self, save_dir: Path, save_prefix: str, image_embs: list = None, template = None, fix_seed = True):
         if self.cfg.learnable_property == LearnableProperties.style:
             prompts = [f"a painting of a horse and a barn in a valley in the style of {self.cfg.placeholder_token}",
                        f"a painting of a dog in the style of {self.cfg.placeholder_token}",
@@ -112,7 +112,7 @@ class Coach:
                                                         sampler="p_sampler",
                                                         prior_cf_scale=4,
                                                         prior_steps="5",
-                                                        seed=inference_seeds[idx],
+                                                        seed=inference_seeds[idx] if fix_seed else None,
                                                         image_emb_ref=image_emb_references,
                                                         clip_feature=self.cfg.clip_image_feature)[0]
                            for idx in range(len(inference_seeds))])
@@ -347,7 +347,7 @@ class Coach:
                     while len(image_embs[template]) == 0:
                         temp = []
                         classes_temp = []
-                        sampled_images = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images', image_embs=temp, template=[template])
+                        sampled_images = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images', image_embs=temp, template=[template], fix_seed=False)
                         live_negatives = self.query_vlm(sampled_images)
                         for live_negative in live_negatives:
                             if not self.cfg.specific_negatives or self.cfg.specific_negatives in live_negative:
