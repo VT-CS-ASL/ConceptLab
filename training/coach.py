@@ -339,7 +339,7 @@ class Coach:
                 placeholder_token=self.cfg.placeholder_token,
                 learnable_property=self.cfg.learnable_property
             ).templates:
-                templates = [temp]
+                templates = [temp] if '{a}' not in temp else []
                 if '{a}' in temp:
                     for a in PREFIXES:
                         templates.append(temp.format(a=a, token='{token}'))
