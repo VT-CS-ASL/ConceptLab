@@ -57,7 +57,7 @@ class Coach:
         if self.cfg.learnable_property == LearnableProperties.object:
             question = f"What kind of {self.cfg.positive_classes[0]} is in this photo?"
             if self.cfg.image_feature:
-                question = "What general type of animal is in this photo?"
+                question = "What general type of animal is in this photo? like dog or cat"
         elif self.cfg.learnable_property == LearnableProperties.style:
             # NOTE: We specifically specify the content to avoid the model adding it to the answer
             # Currently hard-coded to match the images generated in the style mode
@@ -424,13 +424,12 @@ class Coach:
 
                     neg_prompts = [batch["template"][0].format(token=neg_word) for neg_word in negative_classes[batch["template"][0]]]
 
-                    pivot_embeds = image_emb_normed
                     list_embeds = self.normalize_embeds(torch.stack(image_embs[batch["template"][0]])).detach() if image_embs[batch["template"][0]] else None
                 elif len(neg_prompts) > 0:
                     # Calc distances to negative classes
                     list_embeds = self.get_normed_embeds(neg_prompts).detach()
-                    pivot_embeds = image_emb_normed
 
+                pivot_embeds = image_emb_normed
                 mean_neg_cosine: torch.Tensor = 0
                 max_neg_cosine: torch.Tensor = 0
 
