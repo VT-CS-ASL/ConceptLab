@@ -12,5 +12,5 @@ seed: 0
 live_negatives: True
 image_feature: True
 optimize_in_text_space: True
-specific_negatives: "dog"
+specific_negatives: ["dog", "cat"]
 pos_to_neg_loss_factor: 1.2

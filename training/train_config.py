@@ -68,7 +68,7 @@ class TrainConfig:
     # Whether to use image feature to replace prompt feature
     image_feature: bool = False
     # The class you want to be negative in the placeholder prompt
-    specific_negatives: str = ""
+    specific_negatives: List[str] = field(default_factory=list)
     # Enable clip to transform image to feature space for similarity
     clip_image_feature: bool = False
 
