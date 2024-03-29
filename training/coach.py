@@ -468,7 +468,6 @@ class Coach:
                             if temp:
                                 image_embs[batch["template"][0]].extend(temp)
                                 negative_classes[batch["template"][0]].extend(classes_temp)
-
                         else:
                             self.cfg.negative_classes.extend(negatives)
                     elif self.cfg.gradual_negatives:
