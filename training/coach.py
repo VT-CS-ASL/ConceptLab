@@ -320,7 +320,7 @@ class Coach:
 
         negatives = self.query_vlm(sampled_image)
 
-        if not image_embs or not negative_classes:
+        if image_embs is None or negative_classes is None:
             return negatives
 
         classes_temp = []
