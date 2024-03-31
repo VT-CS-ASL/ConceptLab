@@ -3,7 +3,7 @@ import random
 import sys
 from copy import deepcopy, copy
 from pathlib import Path
-from typing import List, Optional, Tuple, Dict
+from typing import DefaultDict, List, Optional, Tuple, Dict
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -121,7 +121,8 @@ class Coach:
             for emb in image_emb_references:
                 image_embs.append(emb.squeeze(0))
         gen_images = np.hstack([np.array(img) for img in images])
-        Image.fromarray(gen_images).save(save_dir / f'{save_prefix}.jpeg')
+        if save_prefix:
+            Image.fromarray(gen_images).save(save_dir / f'{save_prefix}.jpeg')
         # We return the first output of set_b which will be optionally used by BLIP
         return images
 
@@ -311,11 +312,54 @@ class Coach:
             text_embs_normed = self.normalize_embeds(text_embs)
         return text_embs_normed
 
+    def collect_negative(self, template: list, *, save_image: str, image_embs: Optional[DefaultDict[str, List[int]]], negative_classes: Optional[DefaultDict[str, List[int]]]) -> List[str]:
+        temp = []
+        sampled_image = self.save_images(save_dir=self.cfg.images_root,
+                                        save_prefix=f'{self.train_step}_{save_image}' if save_image else "",
+                                        image_embs=temp,  template=template)
+
+        negatives = self.query_vlm(sampled_image)
+
+        if not image_embs or not negative_classes:
+            return negatives
+
+        classes_temp = []
+        for live_negative in negatives:
+            if not self.cfg.specific_negatives or any( cluster in live_negative for cluster in self.cfg.specific_negatives):
+                classes_temp.append(live_negative)
+            elif image_embs is not None:
+                del temp[len(classes_temp)]
+
+        if temp:
+            image_embs[template[0]].extend(temp)
+            negative_classes[template[0]].extend(classes_temp)
+
+        return negatives
+
+    def get_all_template_embedded(self, save_image: str, image_embs: DefaultDict[str, List[int]], negative_classes: DefaultDict[str, List[int]], count=0):
+        """
+        use all template fomr ConceptDataset
+        which are under training.templates
+        """
+        from training.templates import PREFIXES
+        for temp in ConceptDataset(
+            placeholder_token=self.cfg.placeholder_token,
+            learnable_property=self.cfg.learnable_property
+        ).templates:
+            templates = [temp] if '{a}' not in temp else []
+            if '{a}' in temp:
+                for a in PREFIXES: # a the an
+                    templates.append(temp.format(a=a, token='{token}'))
+            for template in templates:
+                while len(image_embs[template]) <= count:
+                    self.collect_negative([template], save_image=save_image,
+                                                image_embs=image_embs, negative_classes=negative_classes)
+
     def train(self):
 
         # to avoid generating image for specific class too many times
+        image_embs, negative_classes = None, None
         count = 0
-        image_embs = None
         if self.cfg.image_feature and not self.cfg.live_negatives:
             raise RuntimeError("image feature must with live_negatives")
         elif self.cfg.image_feature:
@@ -323,40 +367,18 @@ class Coach:
             image_embs = defaultdict(list)
             negative_classes = defaultdict(list)
 
-        # TODO: move negative related image and feature to method
         if not self.cfg.image_feature:
             sampled_images = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images')
             if self.cfg.live_negatives and len(self.cfg.negative_classes) == 0:
                 live_negatives = self.query_vlm(sampled_images)
-                self.cfg.negative_classes.append(live_negative)
+                self.cfg.negative_classes.append(live_negatives)
             elif self.cfg.gradual_negatives:
                 random.shuffle(self.cfg.negative_classes)
                 self.cfg.negative_pool = copy(self.cfg.negative_classes)
                 self.cfg.negative_classes = [self.cfg.negative_pool.pop(0)]
         else:
-            from training.templates import PREFIXES
-            for temp in ConceptDataset(
-                placeholder_token=self.cfg.placeholder_token,
-                learnable_property=self.cfg.learnable_property
-            ).templates:
-                templates = [temp] if '{a}' not in temp else []
-                if '{a}' in temp:
-                    for a in PREFIXES: # a the an
-                        templates.append(temp.format(a=a, token='{token}'))
-                for template in templates:
-                    while len(image_embs[template]) == 0:
-                        temp = []
-                        classes_temp = []
-                        sampled_images = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images', image_embs=temp, template=[template], fix_seed=False)
-                        live_negatives = self.query_vlm(sampled_images)
-                        for live_negative in live_negatives:
-                            if not self.cfg.specific_negatives or any( cluster in live_negative for cluster in self.cfg.specific_negatives):
-                                classes_temp.append(live_negative)
-                            elif image_embs is not None:
-                                del temp[len(classes_temp)]
-
-                        image_embs[template].extend(temp)
-                        negative_classes[template].extend(classes_temp)
+            self.get_all_template_embedded("", image_embs, negative_classes, count)
+            count += 1
 
         distances_log: List[Dict[str, float]] = []
 
@@ -449,30 +471,20 @@ class Coach:
                     self.save_embeds(embed_save_path)
 
                 if self.cfg.log_image_frequency > 0 and (self.train_step % self.cfg.log_image_frequency == 0):
-                    temp = []
-                    sampled_image = self.save_images(save_dir=self.cfg.images_root,
-                                                     save_prefix=f'{self.train_step}_step_images',
-                                                     image_embs=temp,  template=batch["template"])
                     figure_save_path = self.cfg.images_root / f"{self.train_step}_step_distances.jpg"
                     self.plot_distances(distances_log=distances_log, output_path=figure_save_path)
 
-                    if self.cfg.live_negatives:
-                        negatives = self.query_vlm(sampled_image)
-                        if self.cfg.image_feature:
-                            classes_temp = []
-                            for live_negative in negatives:
-                                if not self.cfg.specific_negatives or any( cluster in live_negative for cluster in self.cfg.specific_negatives):
-                                    classes_temp.append(live_negative)
-                                elif image_embs is not None:
-                                    del temp[len(classes_temp)]
-                            if temp:
-                                image_embs[batch["template"][0]].extend(temp)
-                                negative_classes[batch["template"][0]].extend(classes_temp)
-                        else:
+                    if self.cfg.image_feature:
+                        self.get_all_template_embedded("step_images", image_embs, negative_classes, count)
+                        count += 1
+                    else:
+                        negatives = self.collect_negative(batch["template"], save_image="step_images",
+                                                        image_embs=None, negative_classes=None)
+                        if self.cfg.live_negatives:
                             self.cfg.negative_classes.extend(negatives)
-                    elif self.cfg.gradual_negatives:
-                        if len(self.cfg.negative_pool) > 0:
-                            self.cfg.negative_classes.append(self.cfg.negative_pool.pop(0))
+                        elif self.cfg.gradual_negatives:
+                            if len(self.cfg.negative_pool) > 0:
+                                self.cfg.negative_classes.append(self.cfg.negative_pool.pop(0))
 
             embed_save_path = self.cfg.output_dir / "learned_embeds.bin"
             self.save_embeds(embed_save_path)
