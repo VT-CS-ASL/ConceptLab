@@ -175,11 +175,11 @@ class Coach:
         )
         return optimizer
 
-    def get_neg_similarity(self, neg_prompts, distances_per_cls: dict, list_embeds: torch.Tensor, pivot_embeds: torch.Tensor):
+    def get_neg_similarity(self, neg_prompts, negative_classes: list, distances_per_cls: dict, list_embeds: torch.Tensor, pivot_embeds: torch.Tensor):
         neg_cosine_sim = (list_embeds @ pivot_embeds.T)
 
         # Add distances to log
-        for neg_ind, neg_class in enumerate(self.cfg.negative_classes):
+        for neg_ind, neg_class in enumerate(negative_classes):
             distances_per_cls[neg_class] = neg_cosine_sim[neg_ind].mean().item()
 
         # Restrict min cosine sim to optimize
@@ -446,7 +446,10 @@ class Coach:
                 print(f"classes number: {len(neg_prompts)}")
                 if len(neg_prompts):
                     mean_neg_cosine, max_neg_cosine = self.get_neg_similarity(neg_prompts=neg_prompts,
-                                                                              distances_per_cls=distances_per_cls,
+                                                                              negative_classes =
+                                                                                self.cfg.negative_classes if not self.cfg.image_feature else 
+                                                                                negative_classes[batch["template"][0]],
+                                                                                distances_per_cls=distances_per_cls,
                                                                               list_embeds=list_embeds,
                                                                               pivot_embeds=pivot_embeds)
 
