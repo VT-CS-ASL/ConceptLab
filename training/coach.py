@@ -425,7 +425,7 @@ class Coach:
                 # Calc positive loss
                 pos_loss: torch.Tensor = 0
                 for pos_ind, curr_pos_cosine_sim in enumerate(pos_cosine_sim):
-                    pos_loss += self.cfg.positive_weights[pos_ind] * (1 - curr_pos_cosine_sim)
+                    pos_loss += self.cfg.positive_weights[pos_ind] * ((0 if self.cfg.loss_gan else 1) - curr_pos_cosine_sim)
                 max_pos_cosine, pos_max_ind = pos_cosine_sim.mean(dim=1).max(dim=0)
                 print(f'\tpos_loss: {pos_loss.item():.3f}, '
                       f'max_pos: {max_pos_cosine:.3f} for {pos_prompts[pos_max_ind]}')
@@ -456,7 +456,10 @@ class Coach:
                 distances_log.append(distances_per_cls)
                 print(distances_per_cls.keys())
 
-                loss = 0.5 * (mean_neg_cosine + max_neg_cosine) + self.cfg.pos_to_neg_loss_factor * pos_loss
+                if self.cfg.loss_gan:
+                    loss = (mean_neg_cosine + max_neg_cosine) + self.cfg.pos_to_neg_loss_factor * pos_loss / pos_cosine_sim.size(0)
+                else:
+                    loss = 0.5 * (mean_neg_cosine + max_neg_cosine) + self.cfg.pos_to_neg_loss_factor * pos_loss
                 print(f'\tloss: {loss.item():.3f}')
                 loss.backward()
                 self.optimizer.step()
