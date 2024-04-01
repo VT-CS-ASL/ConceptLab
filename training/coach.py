@@ -57,7 +57,7 @@ class Coach:
         if self.cfg.learnable_property == LearnableProperties.object:
             question = f"What kind of {self.cfg.positive_classes[0]} is in this photo?"
             if self.cfg.image_feature:
-                question = "What general type of animal is in this photo? like dog or cat"
+                question = "What general category of animal is in this photo?"
         elif self.cfg.learnable_property == LearnableProperties.style:
             # NOTE: We specifically specify the content to avoid the model adding it to the answer
             # Currently hard-coded to match the images generated in the style mode
@@ -351,9 +351,11 @@ class Coach:
                 for a in PREFIXES: # a the an
                     templates.append(temp.format(a=a, token='{token}'))
             for template in templates:
-                while len(image_embs[template]) <= count:
+                while True:
                     self.collect_negative([template], save_image=save_image,
                                                 image_embs=image_embs, negative_classes=negative_classes)
+                    if len(image_embs[template]) > count or (self.cfg.specific_negatives and len(image_embs[template]) > 0):
+                        break
 
     def train(self):
 
@@ -441,7 +443,7 @@ class Coach:
                 pivot_embeds = image_emb_normed
                 mean_neg_cosine: torch.Tensor = 0
                 max_neg_cosine: torch.Tensor = 0
-
+                print(f"classes number: {len(neg_prompts)}")
                 if len(neg_prompts):
                     mean_neg_cosine, max_neg_cosine = self.get_neg_similarity(neg_prompts=neg_prompts,
                                                                               distances_per_cls=distances_per_cls,
@@ -473,7 +475,6 @@ class Coach:
                 if self.cfg.log_image_frequency > 0 and (self.train_step % self.cfg.log_image_frequency == 0):
                     figure_save_path = self.cfg.images_root / f"{self.train_step}_step_distances.jpg"
                     self.plot_distances(distances_log=distances_log, output_path=figure_save_path)
-
                     if self.cfg.image_feature:
                         self.get_all_template_embedded("step_images", image_embs, negative_classes, count)
                         count += 1
