@@ -336,11 +336,12 @@ class Coach:
 
         return negatives
 
-    def get_all_template_embedded(self, save_image: str, image_embs: DefaultDict[str, List[int]], negative_classes: DefaultDict[str, List[int]], count=0):
+    def get_all_template_embedded(self, save_image: str, image_embs: DefaultDict[str, List[int]], negative_classes: DefaultDict[str, List[int]], count=0, plot=""):
         """
         use all template fomr ConceptDataset
         which are under training.templates
         """
+        stas = []
         from training.templates import PREFIXES
         for temp in ConceptDataset(
             placeholder_token=self.cfg.placeholder_token,
@@ -352,10 +353,22 @@ class Coach:
                     templates.append(temp.format(a=a, token='{token}'))
             for template in templates:
                 while True:
-                    self.collect_negative([template], save_image=save_image,
-                                                image_embs=image_embs, negative_classes=negative_classes)
+                    stas.extend(self.collect_negative([template], save_image=save_image,
+                                                image_embs=image_embs, negative_classes=negative_classes))
                     if len(image_embs[template]) > count or (self.cfg.specific_negatives and len(image_embs[template]) > 0):
                         break
+
+        if plot:
+            from collections import Counter
+            counter = Counter(stas)
+            elements = list(counter.keys())
+            counts = list(counter.values())
+            plt.bar(elements, counts)
+            plt.xlabel('classes')
+            plt.ylabel('frequency')
+            plt.title('class')
+            plt.savefig(self.cfg.images_root / f'{plot}.jpg')
+
 
     def train(self):
 
@@ -482,7 +495,7 @@ class Coach:
                     figure_save_path = self.cfg.images_root / f"{self.train_step}_step_distances.jpg"
                     self.plot_distances(distances_log=distances_log, output_path=figure_save_path)
                     if self.cfg.image_feature:
-                        self.get_all_template_embedded("step_images", image_embs, negative_classes, count)
+                        self.get_all_template_embedded("step_images", image_embs, negative_classes, count, plot=f"{self.train_step}_step_stast")
                         count += 1
                     else:
                         negatives = self.collect_negative(batch["template"], save_image="step_images",
