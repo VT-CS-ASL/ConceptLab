@@ -534,7 +534,7 @@ class Coach:
         # Create a line plot for each class
         plt.figure(figsize=(10, 10))
         for class_name in classes:
-            distances = [distances_log[i].get(class_name, None) for i in range(len(distances_log))]
+            distances = [distances_log[i].get(class_name, 0.0) for i in range(len(distances_log))]
             # Find first non-None index
             none_start_idx = next((i for i, d in enumerate(distances) if d is not None), None)
             distances = distances[none_start_idx:]
