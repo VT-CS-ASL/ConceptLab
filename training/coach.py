@@ -360,10 +360,14 @@ class Coach:
 
         if plot:
             from collections import Counter
+            plt.figure(figsize=(10, 10))
             counter = Counter(stas)
             elements = list(counter.keys())
             counts = list(counter.values())
-            plt.bar(elements, counts)
+            cmap = plt.cm.get_cmap('tab20')
+            colors = {class_name: cmap(i) for i, class_name in enumerate(elements)}
+            counts = [k//sum(counts) for k in counts]
+            plt.bar(elements, counts, color=colors)
             plt.xlabel('classes')
             plt.ylabel('frequency')
             plt.title('class')
