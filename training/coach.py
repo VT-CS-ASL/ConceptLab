@@ -365,7 +365,7 @@ class Coach:
             elements = list(counter.keys())
             counts = list(counter.values())
             cmap = plt.cm.get_cmap('tab20')
-            colors = {class_name: cmap(i) for i, class_name in enumerate(elements)}
+            colors = [cmap(i) for i in range(len(elements))]
             counts = [k//sum(counts) for k in counts]
             plt.bar(elements, counts, color=colors)
             plt.xlabel('classes')
