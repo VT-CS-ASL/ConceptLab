@@ -426,7 +426,7 @@ class Coach:
                 else:
                     pos_prompts = [batch["template"][0].format(token=pos_word) for pos_word in
                                    self.cfg.positive_classes]
-                if self.cfg.image_feature:
+                if self.cfg.pos_image_embedded:
                     pos_embeds = self.get_image_feature(pos_prompts)
                 else:
                     pos_embeds = self.get_normed_embeds(pos_prompts)

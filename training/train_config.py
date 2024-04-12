@@ -73,6 +73,8 @@ class TrainConfig:
     clip_image_feature: bool = False
     # The loss functino will be like GAN
     loss_gan: bool = False
+    # Positive embedded from image
+    pos_image_embedded: bool = False
 
     def __post_init__(self):
         self.output_dir.mkdir(exist_ok=True, parents=True)
