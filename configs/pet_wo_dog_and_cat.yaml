@@ -13,5 +13,6 @@ live_negatives: True
 image_feature: True
 optimize_in_text_space: True
 specific_negatives: ["dog", "cat"]
-pos_to_neg_loss_factor: 1.2
-pos_image_embedded: True
+pos_to_neg_loss_factor: 1.0
+pos_image_embedded: False
+optimize_in_image_sapce_for_positive: True

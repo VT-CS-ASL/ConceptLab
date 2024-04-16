@@ -410,12 +410,25 @@ class Coach:
                     prior_cf_scale=4,
                     prior_steps="5",
                     negative_prior_prompt="",
-                    apply_prior=not self.cfg.optimize_in_text_space
+                    apply_prior=(not self.cfg.optimize_in_text_space) or self.cfg.optimize_in_image_sapce_for_positive
                 )
+
+                image_emb_4_pos_normed = None
+                if self.cfg.optimize_in_image_sapce_for_positive:
+                    image_emb_4_pos_normed = self.normalize_embeds(image_emb)
+
+                image_emb_normed = None
                 if self.cfg.optimize_in_text_space:
                     image_emb = txt_emb[:1]
+                    image_emb_normed = self.normalize_embeds(image_emb)
 
-                image_emb_normed = self.normalize_embeds(image_emb)
+                if not image_emb_4_pos_normed and not image_emb_normed:
+                    image_emb_4_pos_normed = image_emb_normed = self.normalize_embeds(image_emb)
+                else:
+                    if not image_emb_4_pos_normed:
+                        image_emb_4_pos_normed = image_emb_normed
+                    if not image_emb_normed:
+                        image_emb_normed = image_emb_4_pos_normed
 
                 # Calculate distances from classes
                 distances_per_cls = {}
@@ -430,7 +443,7 @@ class Coach:
                     pos_embeds = self.get_image_feature(pos_prompts)
                 else:
                     pos_embeds = self.get_normed_embeds(pos_prompts)
-                pos_cosine_sim = (pos_embeds.detach() @ image_emb_normed.T)
+                pos_cosine_sim = (pos_embeds.detach() @ image_emb_4_pos_normed.T)
 
                 # Add distances to log
                 for pos_ind, pos_class in enumerate(self.cfg.positive_classes):
