@@ -66,8 +66,6 @@ class Coach:
             raise ValueError(f"Unknown learnable property: {self.cfg.learnable_property}")
 
         neg_classes = []
-        if self.cfg.ignore_vlm:
-            return ["Others"] * len(sampled_images)
 
         for sampled_image in sampled_images:
             with torch.no_grad():
@@ -151,7 +149,6 @@ class Coach:
                         prior_cf_scale=4,
                         prior_steps="5",
                         negative_prior_prompt="",
-                    )#seed=seed)
                     ).squeeze(0)
                 for img_prompt in img_prompts
                 #for seed in self.cfg.inference_seeds
@@ -377,17 +374,6 @@ class Coach:
             plt.savefig(self.cfg.images_root / f'{plot}.jpg')
 
 
-    def unsupervised_negative(self):
-        """
-        Generate Image from self.model.generate_text2img
-        Cluster the image to different and give each class a lable like class1, class2
-        Pick one image embedded or average embedded from each class to represent them
-        """
-        images_features = []
-        classes_name = []
-
-        return images_features, classes_name
-
     def train(self):
 
         # to avoid generating image for specific class too many times
@@ -410,11 +396,8 @@ class Coach:
                 self.cfg.negative_pool = copy(self.cfg.negative_classes)
                 self.cfg.negative_classes = [self.cfg.negative_pool.pop(0)]
         else:
-            if self.cfg.enable_clustering:
-                image_embs, negative_classes = self.unsupervised_negative()
-            else:
-                self.get_all_template_embedded("", image_embs, negative_classes, count)
-                count += 1
+            self.get_all_template_embedded("", image_embs, negative_classes, count)
+            count += 1
 
         distances_log: List[Dict[str, float]] = []
 
@@ -529,11 +512,8 @@ class Coach:
                     figure_save_path = self.cfg.images_root / f"{self.train_step}_step_distances.jpg"
                     self.plot_distances(distances_log=distances_log, output_path=figure_save_path)
                     if self.cfg.image_feature:
-                        if self.cfg.enable_clustering:
-                            image_embs, negative_classes = self.unsupervised_negative()
-                        else:
-                            self.get_all_template_embedded("step_images", image_embs, negative_classes, count, plot=f"{self.train_step}_step_stast")
-                            count += 1
+                        self.get_all_template_embedded("step_images", image_embs, negative_classes, count, plot=f"{self.train_step}_step_stast")
+                        count += 1
                     else:
                         negatives = self.collect_negative(batch["template"], save_image="step_images",
                                                         image_embs=None, negative_classes=None)
