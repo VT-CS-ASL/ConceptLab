@@ -149,7 +149,8 @@ class Coach:
                         prior_cf_scale=4,
                         prior_steps="5",
                         negative_prior_prompt="",
-                    ).squeeze(0)
+                ).squeeze(0)
+                )
                 for img_prompt in img_prompts
                 #for seed in self.cfg.inference_seeds
             ])
