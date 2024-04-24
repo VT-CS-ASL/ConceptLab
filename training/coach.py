@@ -645,6 +645,8 @@ class Coach:
                                 print(f"num cluster centers {len(centers)}")
                                 # self.kmeans_2D_visualize(kmeans_center, centers, elements, labels)
                                 # plt.savefig(self.cfg.images_root / f"image_cluster_visualization_{template}_{self.train_step}.png")
+                        self.save_images(save_dir=self.cfg.images_root,
+                                save_prefix=f'{self.train_step}_step_images')
                     else:
                         negatives = self.collect_negative(batch["template"], save_image="step_images",
                                                         image_embs=None, negative_classes=None)
