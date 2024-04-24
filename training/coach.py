@@ -19,6 +19,13 @@ from training.dataset import ConceptDataset
 from training.templates import object_templates_edits, LearnableProperties
 from training.train_config import TrainConfig
 
+# libraries for clustering mechanisms
+from sklearn.cluster import KMeans
+import torchvision.transforms as T
+from sklearn.manifold import TSNE
+from scipy.spatial.distance import euclidean
+from collections import Counter
+
 matplotlib.use('Agg')  # Set the backend to non-interactive (Agg)
 
 
@@ -27,8 +34,8 @@ class Coach:
         self.cfg = config
         (self.cfg.output_dir / 'run_cfg.yaml').write_text(pyrallis.dump(self.cfg))
         (self.cfg.output_dir / 'run.sh').write_text(f'python {Path(__file__).name} {" ".join(sys.argv)}')
-        if self.cfg.seed is not None:
-            set_seed(self.cfg.seed)
+        # if self.cfg.seed is not None:
+            # set_seed(self.cfg.seed)
 
         self.model = self.get_model()
 
@@ -83,7 +90,7 @@ class Coach:
 
         return neg_classes
 
-    def save_images(self, save_dir: Path, save_prefix: str, image_embs: list = None, template = None, fix_seed = True):
+    def save_images(self, save_dir: Path, save_prefix: str, image_embs: list = None, template = None, fix_seed = True , feature_only = False):
         if self.cfg.learnable_property == LearnableProperties.style:
             prompts = [f"a painting of a horse and a barn in a valley in the style of {self.cfg.placeholder_token}",
                        f"a painting of a dog in the style of {self.cfg.placeholder_token}",
@@ -114,7 +121,8 @@ class Coach:
                                                         prior_steps="5",
                                                         seed=inference_seeds[idx] if fix_seed else None,
                                                         image_emb_ref=image_emb_references,
-                                                        clip_feature=self.cfg.clip_image_feature)[0]
+                                                        clip_feature=self.cfg.clip_image_feature,
+                                                        feature_only=feature_only)[0]
                            for idx in range(len(inference_seeds))])
 
         if image_emb_references:
@@ -337,6 +345,27 @@ class Coach:
 
         return negatives
 
+    def get_neg_centers(self, templates):
+        num_gen_imgs = 10
+        image_emb_set = []
+        image_emb_tensors = []
+        for i in range(0, num_gen_imgs):
+            print(f"i {i}")
+            temp = []
+            self.save_images(save_dir=self.cfg.images_root,
+                            save_prefix="",
+                            image_embs=temp,
+                            template=templates,
+                            fix_seed=False,
+                            feature_only=True)
+            image_emb = temp[0]
+            image_emb_tensors.append(image_emb)
+            image_emb_set.append(self.normalize_embeds(image_emb).detach().cpu().numpy())
+
+        embeddings = np.array(image_emb_set)
+        embeddings = embeddings.reshape(len(image_emb_set), -1)
+        return self.kmeans_clustering(embeddings) #centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx
+
     def get_all_template_embedded(self, save_image: str, image_embs: DefaultDict[str, List[int]], negative_classes: DefaultDict[str, List[int]], count=0, plot=""):
         """
         use all template fomr ConceptDataset
@@ -367,18 +396,82 @@ class Coach:
             counts = list(counter.values())
             cmap = plt.cm.get_cmap('tab20')
             colors = [cmap(i) for i in range(len(elements))]
-            counts = [k for k in counts]
             plt.bar(elements, counts, color=colors)
             plt.xlabel('classes')
             plt.ylabel('frequency')
             plt.title('class')
             plt.savefig(self.cfg.images_root / f'{plot}.jpg')
 
+    def make_continuous(lst):
+        unique_elements = sorted(set(lst))
+        mapping = {elem: i for i, elem in enumerate(unique_elements)}
+        return [mapping[elem] for elem in lst]
+
+    def kmeans_clustering(self, data_points, images = None):
+        # cluster_ids_x, cluster_centers = kmeans(X=data_points, num_clusters=2, distance="euclidean", device=torch.device("cuda"))
+        kmeans = KMeans(n_clusters=3, init='k-means++', random_state=42)
+        kmeans.fit(data_points)
+        labels = kmeans.labels_
+
+        closest_idx = []
+        for i in range(kmeans.n_clusters):
+          clst_pts = data_points[kmeans.labels_ == i]
+          clst_pts_ind = np.where(kmeans.labels_ == i)[0]
+          clst_center = kmeans.cluster_centers_[i]
+          min_pt = np.argmin([euclidean(data_points[idx], clst_center) for idx in clst_pts_ind])
+          closest_idx.append(min_pt)
+
+        unique, counts = np.unique(labels, return_counts=True)
+        cluster_counts = dict(zip(unique, counts))
+
+        selected_clusters = [cluster for cluster, count in cluster_counts.items()]
+        selected_centers = kmeans.cluster_centers_[selected_clusters]
+        selected_labels = []
+
+        selected_labels = [label for label in labels if label in selected_clusters]
+        unique_elements = sorted(set(selected_labels))
+        mapping = {elem: i for i, elem in enumerate(unique_elements)}
+        # selected_labels = make_continuous(selected_labels)
+        selected_labels = [mapping[elem] for elem in selected_labels]
+        selected_labels = np.array(selected_labels)
+
+        counter = Counter(kmeans.labels_)
+        largest_cluster_idx = np.argmax(counter.values())
+
+        selected_elements = np.array([data_points[i] for i, label in enumerate(labels)])
+        if images:
+            selected_images = [images[i] for i, label in enumerate(labels) if label in selected_clusters]
+        else:
+            selected_images = None
+
+        return selected_centers, selected_labels, selected_elements, selected_images, labels, closest_idx, largest_cluster_idx
+
+    def infer_model(model, image):
+        transform = T.Compose([
+            T.Resize((518, 518)),
+            T.ToTensor(),
+            T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        ])
+        image = transform(image).unsqueeze(0).cuda()
+        cls_token = model(image, is_training=False)
+        return cls_token
+
+    def kmeans_2D_visualize(self, kmeans_center, centers, data, labels):
+        # visualize 2D t-SNE results
+        plt.figure(figsize=(10, 8))
+        tsne = TSNE(n_components=2, random_state=42, perplexity=len(data) - 1)
+        embeddings_2d = tsne.fit_transform(data)
+        print(len(embeddings_2d))
+
+        for i in range(kmeans_center):
+            cluster_points = np.array(embeddings_2d[labels==i])
+            plt.scatter(cluster_points[:, 0], cluster_points[:, 1], label=f"Cluster {i + 1}", s=100)
 
     def train(self):
 
         # to avoid generating image for specific class too many times
         image_embs, negative_classes = None, None
+        object_item = 0
         count = 0
         if self.cfg.image_feature and not self.cfg.live_negatives:
             raise RuntimeError("image feature must with live_negatives")
@@ -397,13 +490,31 @@ class Coach:
                 self.cfg.negative_pool = copy(self.cfg.negative_classes)
                 self.cfg.negative_classes = [self.cfg.negative_pool.pop(0)]
         else:
-            self.get_all_template_embedded("", image_embs, negative_classes, count)
-            count += 1
-
+            from training.templates import PREFIXES
+            for temp in ConceptDataset(
+                placeholder_token=self.cfg.placeholder_token,
+                learnable_property=self.cfg.learnable_property
+            ).templates:
+                templates = [temp] if '{a}' not in temp else []
+                # print(f"templates {templates}")
+                if '{a}' in temp:
+                    for a in PREFIXES: # a the an
+                        templates.append(temp.format(a=a, token='{token}'))
+                for template in templates:
+                    print(f"template {template}")
+                    centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx = self.get_neg_centers(templates=template)
+                    new_neg = torch.tensor(centers[largest_cluster_idx], requires_grad=True).to(self.model.device, torch.float16).squeeze(0)
+                    negative_classes[template].append("negative_object_"+str(object_item))
+                    image_embs[template].append(new_neg)
+                    object_item += 1
+            
+        
+        kmeans_center = 50
         distances_log: List[Dict[str, float]] = []
 
         while self.train_step < self.cfg.steps:
             for sample_idx, batch in enumerate(self.train_dataloader):
+                # Curious what train_dataloader is as well, batch additionally
                 print(f'For step #{self.train_step}')
                 txt_emb, image_emb = self.generate_clip_emb(
                     prompt=batch["text"][0],
@@ -513,8 +624,25 @@ class Coach:
                     figure_save_path = self.cfg.images_root / f"{self.train_step}_step_distances.jpg"
                     self.plot_distances(distances_log=distances_log, output_path=figure_save_path)
                     if self.cfg.image_feature:
-                        self.get_all_template_embedded("step_images", image_embs, negative_classes, count, plot=f"{self.train_step}_step_stast")
-                        count += 1
+                        from training.templates import PREFIXES
+                        for temp in ConceptDataset(
+                            placeholder_token=self.cfg.placeholder_token,
+                            learnable_property=self.cfg.learnable_property
+                        ).templates:
+                            templates = [temp] if '{a}' not in temp else []
+                            if '{a}' in temp:
+                                for a in PREFIXES: # a the an
+                                    templates.append(temp.format(a=a, token='{token}'))
+                            for template in templates:
+                                centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx = self.get_neg_centers(templates=template)
+                                new_neg = torch.tensor(centers[largest_cluster_idx], requires_grad=True).to(self.model.device, torch.float16).squeeze(0)
+                                # negative_classes[template].append(new_neg)
+                                negative_classes[template].append("negative_object_"+str(object_item))
+                                image_embs[template].append(new_neg)
+                                object_item += 1
+                                print(f"num cluster centers {len(centers)}")
+                                # self.kmeans_2D_visualize(kmeans_center, centers, elements, labels)
+                                # plt.savefig(self.cfg.images_root / f"image_cluster_visualization_{template}_{self.train_step}.png")
                     else:
                         negatives = self.collect_negative(batch["template"], save_image="step_images",
                                                         image_embs=None, negative_classes=None)
