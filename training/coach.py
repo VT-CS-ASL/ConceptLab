@@ -122,10 +122,10 @@ class Coach:
                                                         seed=inference_seeds[idx] if fix_seed else None,
                                                         image_emb_ref=image_emb_references,
                                                         clip_feature=self.cfg.clip_image_feature,
-                                                        feature_only=feature_only)[0]
+                                                        feature_only=feature_only)
                            for idx in range(len(inference_seeds))]
             if not feature_only:
-                images.extend(here)
+                images.extend([i[0] for i in here])
 
         if image_emb_references:
             for emb in image_emb_references:
