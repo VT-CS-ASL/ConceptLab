@@ -353,7 +353,6 @@ class Coach:
         image_emb_set = []
         image_emb_tensors = []
         for i in range(0, num_gen_imgs):
-            print(f"i {i}")
             temp = []
             self.save_images(save_dir=self.cfg.images_root,
                             save_prefix="",
