@@ -130,9 +130,10 @@ class Coach:
         if image_emb_references:
             for emb in image_emb_references:
                 image_embs.append(emb.squeeze(0))
-        gen_images = np.hstack([np.array(img) for img in images])
-        if save_prefix:
-            Image.fromarray(gen_images).save(save_dir / f'{save_prefix}.jpeg')
+        if not feature_only:
+            gen_images = np.hstack([np.array(img) for img in images])
+            if save_prefix:
+                Image.fromarray(gen_images).save(save_dir / f'{save_prefix}.jpeg')
         # We return the first output of set_b which will be optionally used by BLIP
         return images
 
