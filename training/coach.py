@@ -109,7 +109,7 @@ class Coach:
         image_emb_references = [] if image_embs is not None else None
 
         for prompt in prompts:
-            images.extend([self.model.generate_text2img(prompt="",
+            here = [self.model.generate_text2img(prompt="",
                                                         img_prompt=prompt,
                                                         num_steps=50,
                                                         batch_size=1,
@@ -123,7 +123,9 @@ class Coach:
                                                         image_emb_ref=image_emb_references,
                                                         clip_feature=self.cfg.clip_image_feature,
                                                         feature_only=feature_only)[0]
-                           for idx in range(len(inference_seeds))])
+                           for idx in range(len(inference_seeds))]
+            if not feature_only:
+                images.extend(here)
 
         if image_emb_references:
             for emb in image_emb_references:
