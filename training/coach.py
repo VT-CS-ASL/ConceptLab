@@ -366,7 +366,8 @@ class Coach:
 
         embeddings = np.array(image_emb_set)
         embeddings = embeddings.reshape(len(image_emb_set), -1)
-        return self.kmeans_clustering(embeddings) #centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx
+        centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx = self.kmeans_clustering(embeddings)
+        return centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx, embeddings[closest_idx[largest_cluster_idx]]
 
     def get_all_template_embedded(self, save_image: str, image_embs: DefaultDict[str, List[int]], negative_classes: DefaultDict[str, List[int]], count=0, plot=""):
         """
@@ -504,8 +505,8 @@ class Coach:
                         templates.append(temp.format(a=a, token='{token}'))
                 for template in templates:
                     print(f"template {template}")
-                    centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx = self.get_neg_centers(templates=template)
-                    new_neg = torch.tensor(centers[largest_cluster_idx], requires_grad=True).to(self.model.device, torch.float16).squeeze(0)
+                    centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx, closter_vec = self.get_neg_centers(templates=template)
+                    new_neg = torch.tensor(closter_vec, requires_grad=True).to(self.model.device, torch.float16).squeeze(0)
                     negative_classes[template].append("negative_object_"+str(object_item))
                     image_embs[template].append(new_neg)
                     object_item += 1
@@ -636,8 +637,8 @@ class Coach:
                                 for a in PREFIXES: # a the an
                                     templates.append(temp.format(a=a, token='{token}'))
                             for template in templates:
-                                centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx = self.get_neg_centers(templates=template)
-                                new_neg = torch.tensor(centers[largest_cluster_idx], requires_grad=True).to(self.model.device, torch.float16).squeeze(0)
+                                centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx, closter_vec = self.get_neg_centers(templates=template)
+                                new_neg = torch.tensor(closter_vec, requires_grad=True).to(self.model.device, torch.float16).squeeze(0)
                                 # negative_classes[template].append(new_neg)
                                 negative_classes[template].append("negative_object_"+str(object_item))
                                 image_embs[template].append(new_neg)
