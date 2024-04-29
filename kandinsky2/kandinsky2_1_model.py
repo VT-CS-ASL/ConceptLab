@@ -315,20 +315,24 @@ class Kandinsky2_1:
             image_emb_ref=None,
             clip_feature=False,
             feature_only=False,
+            given_image_emb=None,
     ):
 
         if img_prompt == "":
             img_prompt = prompt
 
         # generate clip embeddings
-        image_emb = self.generate_clip_emb(
-            img_prompt,
-            batch_size=batch_size,
-            prior_cf_scale=prior_cf_scale,
-            prior_steps=prior_steps,
-            negative_prior_prompt=negative_prior_prompt,
-            seed=seed,
-        )
+        if given_image_emb:
+            image_emb = given_image_emb
+        else:
+            image_emb = self.generate_clip_emb(
+                img_prompt,
+                batch_size=batch_size,
+                prior_cf_scale=prior_cf_scale,
+                prior_steps=prior_steps,
+                negative_prior_prompt=negative_prior_prompt,
+                seed=seed,
+            )
 
         if feature_only:
             if image_emb_ref is not None and type(image_emb_ref) is list:

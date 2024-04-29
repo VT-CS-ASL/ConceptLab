@@ -77,6 +77,7 @@ class TrainConfig:
     pos_image_embedded: bool = False
     # Whether to use image feature for new concept with positive prompt
     optimize_in_image_sapce_for_positive: bool = False
+    center: bool = True
 
     def __post_init__(self):
         self.output_dir.mkdir(exist_ok=True, parents=True)

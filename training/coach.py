@@ -90,7 +90,7 @@ class Coach:
 
         return neg_classes
 
-    def save_images(self, save_dir: Path, save_prefix: str, image_embs: list = None, template = None, fix_seed = True , feature_only = False):
+    def save_images(self, save_dir: Path, save_prefix: str, image_embs: list = None, template = None, fix_seed = True , feature_only = False, given_image_emb = None):
         if self.cfg.learnable_property == LearnableProperties.style:
             prompts = [f"a painting of a horse and a barn in a valley in the style of {self.cfg.placeholder_token}",
                        f"a painting of a dog in the style of {self.cfg.placeholder_token}",
@@ -122,7 +122,8 @@ class Coach:
                                                         seed=inference_seeds[idx] if fix_seed else None,
                                                         image_emb_ref=image_emb_references,
                                                         clip_feature=self.cfg.clip_image_feature,
-                                                        feature_only=feature_only)
+                                                        feature_only=feature_only,
+                                                        given_image_emb=given_image_emb)
                            for idx in range(len(inference_seeds))]
             if not feature_only:
                 images.extend([i[0] for i in here])
@@ -506,7 +507,11 @@ class Coach:
                 for template in templates:
                     print(f"template {template}")
                     centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx, closter_vec = self.get_neg_centers(templates=template)
-                    new_neg = torch.tensor(closter_vec, requires_grad=True).to(self.model.device, torch.float16).squeeze(0)
+                    if not self.cfg.center:
+                        new_neg = torch.tensor(closter_vec, requires_grad=True).to(self.model.device, torch.float16).squeeze(0)
+                    else:
+                        # negative_classes[template].append(new_neg)
+                        new_neg = torch.tensor(centers[largest_cluster_idx], requires_grad=True).to(self.model.device, torch.float16).squeeze(0)
                     negative_classes[template].append("negative_object_"+str(object_item))
                     image_embs[template].append(new_neg)
                     object_item += 1
@@ -638,8 +643,11 @@ class Coach:
                                     templates.append(temp.format(a=a, token='{token}'))
                             for template in templates:
                                 centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx, closter_vec = self.get_neg_centers(templates=template)
-                                new_neg = torch.tensor(closter_vec, requires_grad=True).to(self.model.device, torch.float16).squeeze(0)
-                                # negative_classes[template].append(new_neg)
+                                if not self.cfg.center:
+                                    new_neg = torch.tensor(closter_vec, requires_grad=True).to(self.model.device, torch.float16).squeeze(0)
+                                else:
+                                    # negative_classes[template].append(new_neg)
+                                    new_neg = torch.tensor(centers[largest_cluster_idx], requires_grad=True).to(self.model.device, torch.float16).squeeze(0)
                                 negative_classes[template].append("negative_object_"+str(object_item))
                                 image_embs[template].append(new_neg)
                                 object_item += 1
@@ -648,6 +656,8 @@ class Coach:
                                 # plt.savefig(self.cfg.images_root / f"image_cluster_visualization_{template}_{self.train_step}.png")
                         self.save_images(save_dir=self.cfg.images_root,
                                 save_prefix=f'{self.train_step}_step_images')
+                        self.save_images(save_dir=self.cfg.images_root,
+                                save_prefix=f'neg_{self.train_step}_step_images', given_image_emb=new_neg)
                     else:
                         negatives = self.collect_negative(batch["template"], save_image="step_images",
                                                         image_embs=None, negative_classes=None)
