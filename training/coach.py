@@ -363,10 +363,10 @@ class Coach:
                             feature_only=True)
             image_emb = temp[0]
             image_emb_tensors.append(image_emb)
-            image_emb_set.append((image_emb).detach().cpu().numpy())
+            image_emb_set.append(self.normalize_embeds(image_emb).detach().cpu().numpy())
 
         embeddings = np.array(image_emb_set)
-        #embeddings = embeddings.reshape(len(image_emb_set), -1)
+        embeddings = embeddings.reshape(len(image_emb_set), -1)
         centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx = self.kmeans_clustering(embeddings)
         return centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx, embeddings[closest_idx[largest_cluster_idx]]
 
