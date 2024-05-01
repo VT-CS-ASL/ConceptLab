@@ -322,7 +322,7 @@ class Kandinsky2_1:
             img_prompt = prompt
 
         # generate clip embeddings
-        if given_image_emb:
+        if given_image_emb is not None:
             image_emb = given_image_emb
         else:
             image_emb = self.generate_clip_emb(
