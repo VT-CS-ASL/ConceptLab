@@ -349,24 +349,24 @@ class Coach:
 
         return negatives
 
-    def get_neg_centers(self, templates):
+    def get_neg_centers(self, templates, name="", feature_only=True):
         num_gen_imgs = 10
         image_emb_set = []
         image_emb_tensors = []
         for i in range(0, num_gen_imgs):
             temp = []
             self.save_images(save_dir=self.cfg.images_root,
-                            save_prefix="",
+                            save_prefix=name.format(i=i) if name else name,
                             image_embs=temp,
                             template=templates,
                             fix_seed=False,
-                            feature_only=True)
+                            feature_only=feature_only)
             image_emb = temp[0]
             image_emb_tensors.append(image_emb)
-            image_emb_set.append(self.normalize_embeds(image_emb).detach().cpu().numpy())
+            image_emb_set.append((image_emb).detach().cpu().numpy())
 
         embeddings = np.array(image_emb_set)
-        embeddings = embeddings.reshape(len(image_emb_set), -1)
+        #embeddings = embeddings.reshape(len(image_emb_set), -1)
         centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx = self.kmeans_clustering(embeddings)
         return centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx, embeddings[closest_idx[largest_cluster_idx]]
 
@@ -642,7 +642,7 @@ class Coach:
                                 for a in PREFIXES: # a the an
                                     templates.append(temp.format(a=a, token='{token}'))
                             for template in templates:
-                                centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx, closter_vec = self.get_neg_centers(templates=template)
+                                centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx, closter_vec = self.get_neg_centers(templates=template, name="{i}", feature_only=False)
                                 if not self.cfg.center:
                                     new_neg = torch.tensor(closter_vec, requires_grad=True).to(self.model.device, torch.float16).squeeze(0)
                                 else:
@@ -653,10 +653,11 @@ class Coach:
                                 object_item += 1
                                 # self.kmeans_2D_visualize(kmeans_center, centers, elements, labels)
                                 # plt.savefig(self.cfg.images_root / f"image_cluster_visualization_{template}_{self.train_step}.png")
+                                self.save_images(save_dir=self.cfg.images_root,
+                                        save_prefix=f'neg_{self.train_step}_step_images_{closest_idx[largest_cluster_idx]}', given_image_emb=new_neg.unsqueeze(0))
+                                return
                         self.save_images(save_dir=self.cfg.images_root,
-                                save_prefix=f'{self.train_step}_step_images')
-                        self.save_images(save_dir=self.cfg.images_root,
-                                save_prefix=f'neg_{self.train_step}_step_images', given_image_emb=new_neg.unsqueeze(0))
+                                        save_prefix=f'{self.train_step}_step_images')
                     else:
                         negatives = self.collect_negative(batch["template"], save_image="step_images",
                                                         image_embs=None, negative_classes=None)
