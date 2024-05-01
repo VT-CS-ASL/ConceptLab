@@ -654,8 +654,6 @@ class Coach:
                                 # plt.savefig(self.cfg.images_root / f"image_cluster_visualization_{template}_{self.train_step}.png")
                         self.save_images(save_dir=self.cfg.images_root,
                                 save_prefix=f'{self.train_step}_step_images')
-                        self.save_images(save_dir=self.cfg.images_root,
-                                save_prefix=f'neg_{self.train_step}_step_images', given_image_emb=new_neg.unsqueeze(0))
                     else:
                         negatives = self.collect_negative(batch["template"], save_image="step_images",
                                                         image_embs=None, negative_classes=None)
