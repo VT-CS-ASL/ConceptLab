@@ -13,7 +13,7 @@ for pos_to_neg_loss_factor in np.arange(0.8, 2, 0.2):
                     data['min_cosine_thr'] = float(minthd)
                     data['max_cosine_thr'] = float(maxthd)
                     data['pos_to_neg_loss_factor'] = float(pos_to_neg_loss_factor)
-                    data['learing_raate'] = float(learing_raate)
+                    data['learning_rate'] = float(learing_raate)
                     file.seek(0)
                     file.truncate()
                     yaml.dump(data, file)
