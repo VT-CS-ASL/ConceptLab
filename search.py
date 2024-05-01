@@ -3,10 +3,10 @@ import yaml
 import numpy as np
 
 
-for pos_to_neg_loss_factor in np.arange(0.8, 2, 0.2):
-    for learing_raate in [0.01, 0.007, 0.0001, 0.00001]:
-        for maxthd in np.arange(0.25, 1, 0.2):
-            for minthd in np.arange(0.1, 0.5, 0.1):
+for maxthd in np.arange(0.25, 0.31, 0.01):
+    for minthd in np.arange(0.15, 0.21, 0.01):
+        for pos_to_neg_loss_factor in np.arange(0.8, 2, 0.2):
+            for learing_raate in [0.01, 0.007, 0.0001, 0.00001]:
                 output = f"{learing_raate}_{maxthd}_{minthd}_{pos_to_neg_loss_factor}"
                 with open('configs/new_creative_pet.yaml', 'r+') as file:
                     data = yaml.load(file, Loader=yaml.FullLoader)
