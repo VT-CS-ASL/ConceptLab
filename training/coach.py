@@ -651,14 +651,12 @@ class Coach:
                                 negative_classes[template].append("negative_object_"+str(object_item))
                                 image_embs[template].append(new_neg)
                                 object_item += 1
-                                print(f"num cluster centers {len(centers)}")
                                 # self.kmeans_2D_visualize(kmeans_center, centers, elements, labels)
                                 # plt.savefig(self.cfg.images_root / f"image_cluster_visualization_{template}_{self.train_step}.png")
                         self.save_images(save_dir=self.cfg.images_root,
                                 save_prefix=f'{self.train_step}_step_images')
-                        if self.cfg.center:
-                            self.save_images(save_dir=self.cfg.images_root,
-                                    save_prefix=f'neg_{self.train_step}_step_images', given_image_emb=new_neg)
+                        self.save_images(save_dir=self.cfg.images_root,
+                                save_prefix=f'neg_{self.train_step}_step_images', given_image_emb=new_neg.unsqueeze(0))
                     else:
                         negatives = self.collect_negative(batch["template"], save_image="step_images",
                                                         image_embs=None, negative_classes=None)
