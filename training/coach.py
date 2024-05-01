@@ -505,8 +505,7 @@ class Coach:
                     for a in PREFIXES: # a the an
                         templates.append(temp.format(a=a, token='{token}'))
                 for template in templates:
-                    print(f"template {template}")
-                    centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx, closter_vec = self.get_neg_centers(templates=template)
+                    centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx, closter_vec = self.get_neg_centers(templates=[template])
                     if not self.cfg.center:
                         new_neg = torch.tensor(closter_vec, requires_grad=True).to(self.model.device, torch.float16).squeeze(0)
                     else:
@@ -642,7 +641,7 @@ class Coach:
                                 for a in PREFIXES: # a the an
                                     templates.append(temp.format(a=a, token='{token}'))
                             for template in templates:
-                                centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx, closter_vec = self.get_neg_centers(templates=template)
+                                centers, labels, elements, p_images, labels, closest_idx, largest_cluster_idx, closter_vec = self.get_neg_centers(templates=[template])
                                 if not self.cfg.center:
                                     new_neg = torch.tensor(closter_vec, requires_grad=True).to(self.model.device, torch.float16).squeeze(0)
                                 else:
