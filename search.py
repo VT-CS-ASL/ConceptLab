@@ -14,5 +14,7 @@ for pos_to_neg_loss_factor in np.arange(0.8, 2, 0.2):
                     data['max_cosine_thr'] = float(maxthd)
                     data['pos_to_neg_loss_factor'] = float(pos_to_neg_loss_factor)
                     data['learing_raate'] = float(learing_raate)
+                    file.seek(0)
+                    file.truncate()
                     yaml.dump(data, file)
                 os.system(f"python -m scripts.train --config configs/new_creative_pet.yaml --output_dir=./{output}")
