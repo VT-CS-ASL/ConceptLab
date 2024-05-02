@@ -37,7 +37,7 @@ def merge_images(folder_path, output_path=None, specfic_name=""):
         y_offset += img_height
 
     plt.savefig(output_path, bbox_inches='tight')
-    plt.show()
+    #plt.show()
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
