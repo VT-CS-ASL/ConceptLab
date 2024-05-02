@@ -36,7 +36,7 @@ def merge_images(folder_path, output_path=None, specfic_name=""):
                 bbox=dict(facecolor='white', edgecolor='none', boxstyle='square,pad=0.5'))
         y_offset += img_height
 
-    plt.savefig(output_path, bbox_inches='tight')
+    plt.savefig(output_path, bbox_inches='tight', dpi=500)
     #plt.show()
 
 if __name__ == '__main__':
