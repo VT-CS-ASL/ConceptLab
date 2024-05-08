@@ -28,6 +28,23 @@ from collections import Counter
 
 matplotlib.use('Agg')  # Set the backend to non-interactive (Agg)
 
+import time
+from functools import wraps
+
+def timing_decorator(output_attr="time.txt"):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(self: Coach, *args, **kwargs):
+            start_time = time.time()
+            result = func(self, *args, **kwargs)
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            output_file = self.cfg.output_dir / output_attr
+            with open(output_file, 'a') as f:
+                f.write(f"{func.__name__} execute： {elapsed_time}\n")
+            return result
+        return wrapper
+    return decorator
 
 class Coach:
     def __init__(self, config: TrainConfig):
@@ -325,6 +342,7 @@ class Coach:
             text_embs_normed = self.normalize_embeds(text_embs)
         return text_embs_normed
 
+    @timing_decorator()
     def collect_negative(self, template: list, *, save_image: str, image_embs: Optional[DefaultDict[str, List[int]]], negative_classes: Optional[DefaultDict[str, List[int]]]) -> List[str]:
         temp = []
         sampled_image = self.save_images(save_dir=self.cfg.images_root,
@@ -349,6 +367,7 @@ class Coach:
 
         return negatives
 
+    @timing_decorator()
     def get_neg_centers(self, templates):
         num_gen_imgs = 10
         image_emb_set = []
@@ -471,6 +490,7 @@ class Coach:
             cluster_points = np.array(embeddings_2d[labels==i])
             plt.scatter(cluster_points[:, 0], cluster_points[:, 1], label=f"Cluster {i + 1}", s=100)
 
+    @timing_decorator()
     def train(self):
 
         # to avoid generating image for specific class too many times
@@ -484,6 +504,7 @@ class Coach:
             image_embs = defaultdict(list)
             negative_classes = defaultdict(list)
 
+        start_time = time.time()
         if not self.cfg.image_feature:
             sampled_images = self.save_images(save_dir=self.cfg.images_root, save_prefix=f'init_images')
             if self.cfg.live_negatives and len(self.cfg.negative_classes) == 0:
@@ -663,6 +684,11 @@ class Coach:
                             if len(self.cfg.negative_pool) > 0:
                                 self.cfg.negative_classes.append(self.cfg.negative_pool.pop(0))
 
+                    end_time = time.time()
+                    elapsed_time = end_time - start_time
+                    with open(self.cfg.output_dir / "time.txt", 'a') as f:
+                        f.write(f"{self.train_step} steps: {elapsed_time}\n")
+                    start_time = time.time()
             embed_save_path = self.cfg.output_dir / "learned_embeds.bin"
             self.save_embeds(embed_save_path)
 
