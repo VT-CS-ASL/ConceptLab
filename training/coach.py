@@ -34,7 +34,7 @@ from functools import wraps
 def timing_decorator(output_attr="time.txt"):
     def decorator(func):
         @wraps(func)
-        def wrapper(self: Coach, *args, **kwargs):
+        def wrapper(self: 'Coach', *args, **kwargs):
             start_time = time.time()
             result = func(self, *args, **kwargs)
             end_time = time.time()
