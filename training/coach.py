@@ -369,7 +369,7 @@ class Coach:
 
     @timing_decorator()
     def get_neg_centers(self, templates):
-        num_gen_imgs = 10
+        num_gen_imgs = self.cfg.num_knn_class
         image_emb_set = []
         image_emb_tensors = []
         for i in range(0, num_gen_imgs):

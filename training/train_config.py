@@ -78,6 +78,8 @@ class TrainConfig:
     # Whether to use image feature for new concept with positive prompt
     optimize_in_image_sapce_for_positive: bool = False
     center: bool = True
+    # KNN size for generated image
+    num_knn_class = 10
 
     def __post_init__(self):
         self.output_dir.mkdir(exist_ok=True, parents=True)
